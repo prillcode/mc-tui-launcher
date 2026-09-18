@@ -14,24 +14,21 @@ import { useInstancePings } from "../app/useInstancePings"
 import { KeyHints } from "../components/KeyHints"
 import { Centered } from "../components/Centered"
 import { InstanceCard } from "../components/InstanceCard"
-import { BlockhavenLogo } from "../components/BlockhavenLogo"
 
 const CARD_MIN_WIDTH = 32
 const GRID_GAP = 1
 const MAX_COLUMNS = 3
-const LOGO_SIZES = [32, 24, 20, 16, 12, 8]
 
 /**
- * Home: a centered launch pad.
+ * Home: a centered, text-only launch pad.
  *
- *   ╭────────╮
- *   │  logo  │            ASCII-art Blockhaven logo (top)
- *   ╰────────╯
- *   Welcome
  *   Signed in as …
- *   [ instance cards — read-only, Enter launches ]
- *   ▸ Play — Instances    (menu)
- *     Account …
+ *   [ instance cards — click/Enter launches ]
+ *   Minecraft Instances          (menu)
+ *     manage & launch
+ *   ────────────────────────
+ *     Account/Login
+ *     …
  *
  * The instance cards are selectable and launch directly; managing or
  * creating instances stays on the Instances screen ('i').
@@ -67,15 +64,6 @@ export function HomeScreen() {
   const shownInstances = createMemo(() => instances().slice(0, columns()))
   const hiddenCount = createMemo(() => Math.max(0, instances().length - shownInstances().length))
   const hasInstances = () => shownInstances().length > 0
-
-  // Largest logo that fits the leftover vertical space: the logo box takes
-  // art/2 + 2 rows; the greeting, cards, divided two-line menu items,
-  // spacers and chrome take ~30 more.
-  const logoSize = createMemo(() => {
-    const maxPixels = 2 * Math.max(2, dims().height - 30)
-    const byWidth = Math.max(8, columnWidth() - 6)
-    return LOGO_SIZES.find((n) => n <= maxPixels && n <= byWidth) ?? 8
-  })
 
   // Keep the cursors in range as instances/menu change.
   createEffect(() => {
@@ -152,19 +140,8 @@ export function HomeScreen() {
 
   return (
     <box flexDirection="column" flexGrow={1}>
-      <Centered maxWidth={100} paddingY={0}>
+      <Centered maxWidth={100}>
         <box flexDirection="column" flexGrow={1} alignItems="center">
-          <box
-            border
-            borderStyle="rounded"
-            borderColor="#cba6f7"
-            backgroundColor="#181825"
-            paddingX={2}
-            flexDirection="column"
-            alignItems="center"
-          >
-            <BlockhavenLogo size={logoSize()} />
-          </box>
           <text fg="#6c7086">
             <Show when={profile()} fallback={<>Sign in with Microsoft to play online — press 'a'.</>}>
               Signed in as {profile()!.name}. Pick an instance to play.
