@@ -53,7 +53,6 @@ export function HomeScreen() {
   ]
 
   const columnWidth = () => Math.min(100, Math.max(16, dims().width - 4))
-  const menuWidth = () => Math.min(64, Math.max(36, columnWidth() - 8))
 
   const columns = createMemo(() => {
     const usable = Math.max(1, columnWidth())
@@ -199,17 +198,23 @@ export function HomeScreen() {
             </text>
           </Show>
           <box height={1} />
-          <box width={menuWidth()} flexDirection="column">
+          <box width="100%" flexDirection="column">
             <For each={menu}>
               {(action, i) => {
                 const active = () => section() === "menu" && menuIndex() === i()
                 return (
-                  <box flexDirection="row" height={1} backgroundColor={active() ? "#242438" : undefined}>
-                    <text fg={active() ? "#89b4fa" : "#cdd6f4"} attributes={active() ? 1 : 0}>
-                      {active() ? "▸ " : "  "}
-                      {action.label}
-                    </text>
-                    <text fg="#585b70"> — {action.hint}</text>
+                  <box flexDirection="row" height={1} justifyContent="center">
+                    <box
+                      flexDirection="row"
+                      height={1}
+                      backgroundColor={active() ? "#242438" : undefined}
+                    >
+                      <text fg={active() ? "#89b4fa" : "#cdd6f4"} attributes={active() ? 1 : 0}>
+                        {active() ? "▸ " : "  "}
+                        {action.label}
+                      </text>
+                      <text fg="#585b70"> — {action.hint}</text>
+                    </box>
                   </box>
                 )
               }}
