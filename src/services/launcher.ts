@@ -13,6 +13,7 @@ import {
   type StoredSession,
   type ModrinthProject,
   type InstalledMod,
+  type ServerPingResult,
 } from "@prillcode/mc-launcher-core"
 import {
   appendLog,
@@ -122,6 +123,16 @@ class LauncherService {
 
   isInstanceRunning(instanceId: string): boolean {
     return this.core.isInstanceRunning(instanceId)
+  }
+
+  /**
+   * Minecraft Server List Ping — resolves with motd/players/version or
+   * rejects when the server is unreachable. The core applies a 5s
+   * socket timeout; callers should still guard with their own race so
+   * the UI can never hang.
+   */
+  pingServer(host: string, port: number): Promise<ServerPingResult> {
+    return this.core.pingServer(host, port)
   }
 
   closeInstance(instanceId: string): void {

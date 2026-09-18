@@ -1,5 +1,6 @@
-import { Show, Switch, Match, createMemo, createSignal, onCleanup } from "solid-js"
-import { useKeyboard } from "@opentui/solid"
+import { Show, Switch, Match, createMemo, createSignal, createEffect, onCleanup } from "solid-js"
+import { useKeyboard, useRenderer } from "@opentui/solid"
+import type { ServerPingResult } from "@prillcode/mc-launcher-core"
 import {
   screen,
   instances,
@@ -30,6 +31,56 @@ import { Progress } from "../components/Progress"
  */
 export function InstanceDetailScreen() {
   const instance = createMemo(() => instances().find((i) => i.id === selectedInstanceId()))
+  const renderer = useRenderer()
+
+  // ── Server status (ping) ────────────────────────────────────────
+  const PING_TIMEOUT_MS = 6000
+  const [pingState, setPingState] = createSignal<"idle" | "pinging" | "ok" | "down">("idle")
+  const [pingResult, setPingResult] = createSignal<ServerPingResult | null>(null)
+  let pingToken = 0
+
+  async function pingServer(): Promise<void> {
+    const ac = instance()?.serverAutoConnect
+    if (!ac) {
+      setPingState("idle")
+      setPingResult(null)
+      return
+    }
+    const token = ++pingToken
+    setPingState("pinging")
+    setPingResult(null)
+    try {
+      const result = await Promise.race([
+        launcherService.pingServer(ac.host, ac.port ?? 25565),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("ping timed out")), PING_TIMEOUT_MS),
+        ),
+      ])
+      if (token !== pingToken) return
+      setPingResult(result)
+      setPingState("ok")
+    } catch {
+      if (token !== pingToken) return
+      setPingResult(null)
+      setPingState("down")
+    }
+  }
+
+  // Auto-ping on mount and whenever the auto-connect target changes.
+  createEffect(() => {
+    void instance()?.serverAutoConnect?.host
+    void instance()?.serverAutoConnect?.port
+    void pingServer()
+  })
+
+  onCleanup(() => {
+    pingToken++
+  })
+
+  function truncate(value: string): string {
+    const max = Math.max(20, renderer.terminalWidth - 20)
+    return value.length > max ? `${value.slice(0, max - 1)}…` : value
+  }
 
   const [editingServer, setEditingServer] = createSignal(false)
   const [renaming, setRenaming] = createSignal(false)
@@ -211,6 +262,8 @@ export function InstanceDetailScreen() {
       void toggleLoader()
     } else if (key.name === "a") {
       openServerEditor()
+    } else if (key.name === "p" && instance()?.serverAutoConnect) {
+      void pingServer()
     } else if (key.name === "n") {
       openRename()
     } else if (key.name === "x") {
@@ -282,6 +335,32 @@ export function InstanceDetailScreen() {
             <box height={1} />
             <Progress />
             <box height={1} />
+            <Show when={instance()!.serverAutoConnect}>
+              <Switch>
+                <Match when={pingState() === "pinging"}>
+                  <text fg="#f9e2af">Server status: checking…</text>
+                </Match>
+                <Match when={pingState() === "ok" && pingResult()}>
+                  <text fg="#a6e3a1">
+                    Server status: online
+                    {pingResult()!.players
+                      ? ` · ${pingResult()!.players!.online}/${pingResult()!.players!.max} players`
+                      : ""}
+                    {pingResult()!.version ? ` · ${pingResult()!.version}` : ""}
+                  </text>
+                  <Show when={pingResult()!.motd}>
+                    <text fg="#a6adc8">  {truncate(pingResult()!.motd)}</text>
+                  </Show>
+                </Match>
+                <Match when={pingState() === "down"}>
+                  <text fg="#f38ba8">Server status: unreachable — launch still works</text>
+                </Match>
+                <Match when={true}>
+                  <text fg="#6c7086">Server status: not checked — press 'p' to ping</text>
+                </Match>
+              </Switch>
+              <box height={1} />
+            </Show>
             <Switch>
               <Match when={runningInstanceIds().includes(instance()!.id)}>
                 <text fg="#a6e3a1" attributes={1}>
@@ -294,7 +373,7 @@ export function InstanceDetailScreen() {
               </Match>
             </Switch>
             <text fg="#6c7086">
-              'f' Fabric · 'n' rename · 'x' delete · 'a' auto-connect · 'm' mods · Esc back
+              'f' Fabric · 'n' rename · 'x' delete · 'a' auto-connect · 'p' ping · 'm' mods · Esc back
             </text>
           </Match>
           <Match when={true}>
@@ -314,6 +393,7 @@ export function InstanceDetailScreen() {
                     ["l/Enter", "launch"],
                     ["f", "fabric on/off"],
                     ["a", "auto-connect"],
+                    ["p", "ping"],
                     ["n", "rename"],
                     ["x", "delete"],
                     ["m", "mods"],
