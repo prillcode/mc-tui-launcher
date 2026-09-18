@@ -145,8 +145,13 @@ export function InstanceDetailScreen() {
     }
   }
   const [confirmDelete, setConfirmDelete] = createSignal(false)
+  const [confirmLoader, setConfirmLoader] = createSignal(false)
   let deleteTimer: ReturnType<typeof setTimeout> | undefined
-  onCleanup(() => clearTimeout(deleteTimer))
+  let loaderTimer: ReturnType<typeof setTimeout> | undefined
+  onCleanup(() => {
+    clearTimeout(deleteTimer)
+    clearTimeout(loaderTimer)
+  })
 
   let nameInputRef: { value: string } | undefined
 
@@ -179,6 +184,17 @@ export function InstanceDetailScreen() {
     const inst = instance()
     if (!inst || busy()) return
     const next = inst.modLoader === "fabric" ? "vanilla" : "fabric"
+    // Switching *off* Fabric silently strands mods and breaks Fabric
+    // servers, so require a second press (mirrors the delete flow).
+    if (next === "vanilla" && !confirmLoader()) {
+      setConfirmLoader(true)
+      setStatusMessage("Press 'f' again to switch to vanilla — Fabric mods will not load")
+      clearTimeout(loaderTimer)
+      loaderTimer = setTimeout(() => setConfirmLoader(false), 4000)
+      return
+    }
+    clearTimeout(loaderTimer)
+    setConfirmLoader(false)
     try {
       await launcherService.setInstanceModLoader(inst.id, next)
       setStatusMessage(
@@ -310,6 +326,8 @@ export function InstanceDetailScreen() {
     if (key.name === "escape") {
       if (confirmDelete()) {
         setConfirmDelete(false)
+      } else if (confirmLoader()) {
+        setConfirmLoader(false)
       } else {
         goBack()
       }
@@ -373,6 +391,7 @@ export function InstanceDetailScreen() {
               {rowLabel("Mod loader")}
               {instance()!.modLoader === "fabric" ? "fabric" : "vanilla"}
               {instance()!.modLoader === "fabric" ? " (latest at launch)" : ""}
+              {confirmLoader() ? "  (press 'f' again to confirm vanilla!)" : ""}
             </text>
             <Show
               when={memoryStep()}
