@@ -29,7 +29,9 @@ export function ModsScreen() {
   const [selected, setSelected] = createSignal(0)
   const [mods, setMods] = createSignal<InstalledMod[]>([])
   const [instanceIndex, setInstanceIndex] = createSignal(0)
-  const [mode, setMode] = createSignal<"installed" | "search-input" | "results">("installed")
+  const [mode, setMode] = createSignal<"installed" | "search-input" | "results" | "import-input">(
+    "installed",
+  )
   const [results, setResults] = createSignal<ModrinthProject[]>([])
   const [resultSelected, setResultSelected] = createSignal(0)
 
@@ -155,6 +157,42 @@ export function ModsScreen() {
     setMode("installed")
   }
 
+  let importInputRef: { value: string } | undefined
+
+  function openImport() {
+    const inst = instance()
+    if (!inst || busy()) return
+    // Defer so the opening keystroke ('i') can't land in the input
+    setTimeout(() => {
+      setTextInputActive(true)
+      setMode("import-input")
+    }, 0)
+  }
+
+  function closeImport() {
+    setTextInputActive(false)
+    setMode("installed")
+  }
+
+  async function runImport() {
+    const inst = instance()
+    if (!inst) return
+    const jarPath = importInputRef?.value ?? ""
+    try {
+      const mod = await launcherService.importModFile(inst.id, jarPath)
+      // Defer the mode switch so the submitting Enter isn't re-dispatched
+      // as an action in the new mode (same pattern as runSearch).
+      setTimeout(() => {
+        setTextInputActive(false)
+        setMode("installed")
+        setStatusMessage(`Imported ${mod.name} into ${inst.name}`)
+        void loadMods()
+      }, 0)
+    } catch (err) {
+      setStatusMessage(`Import failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
   let searchInputRef: { value: string } | undefined
 
   useKeyboard((key) => {
@@ -193,6 +231,8 @@ export function ModsScreen() {
 
     if (key.name === "s") {
       openSearch()
+    } else if (key.name === "i") {
+      openImport()
     } else if (key.name === "left") {
       setInstanceIndex((i) => Math.max(0, i - 1))
       void loadMods()

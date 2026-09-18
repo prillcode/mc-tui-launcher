@@ -114,6 +114,11 @@ class LauncherService {
     await this.core.mods.removeMod(instanceId, projectId)
   }
 
+  /** Import a local .jar (custom/in-development mod) into an instance. */
+  importModFile(instanceId: string, jarPath: string) {
+    return this.core.mods.importModFile(instanceId, jarPath)
+  }
+
   async toggleMod(instanceId: string, projectId: string): Promise<boolean> {
     const result = await this.core.mods.toggleMod(instanceId, projectId)
     return result.enabled
