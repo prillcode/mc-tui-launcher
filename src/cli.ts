@@ -8,6 +8,10 @@
  * be invoked from any directory; bunfig preload is cwd-relative).
  */
 import "@opentui/solid/preload"
+import { loadAppEnv } from "./services/env"
+
+// Load .env from the app directory before anything reads process.env
+await loadAppEnv()
 
 // Everything below is loaded after the transform plugin is registered
 const { registerQRCode } = await import("@opentui/qrcode/solid")
