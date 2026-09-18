@@ -1,4 +1,4 @@
-import { onMount, onCleanup, For, Show, createSignal, createMemo, createEffect } from "solid-js"
+import { onMount, For, Show, createSignal, createMemo, createEffect } from "solid-js"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import {
   screen,
@@ -11,8 +11,8 @@ import {
   busy,
   runningInstanceIds,
 } from "../app/state"
+import { useInstancePings } from "../app/useInstancePings"
 import { launcherService } from "../services/launcher"
-import { pingAutoConnect, type PingStatus } from "../services/ping"
 import { InstanceCard, CARD_HEIGHT } from "../components/InstanceCard"
 import { KeyHints } from "../components/KeyHints"
 import { Progress } from "../components/Progress"
@@ -37,12 +37,11 @@ const CHROME_ROWS = 9
 export function InstancesScreen() {
   const dims = useTerminalDimensions()
   const [selected, setSelected] = createSignal(0)
-  const [pings, setPings] = createSignal<Record<string, PingStatus>>({})
+  const { pings, reping } = useInstancePings()
   const [creating, setCreating] = createSignal(false)
   const [createSelected, setCreateSelected] = createSignal(0)
   const [pickingLoader, setPickingLoader] = createSignal(false)
   const [loaderSelected, setLoaderSelected] = createSignal(0)
-  let pingRun = 0
 
   const LOADER_CHOICES = ["vanilla", "fabric"] as const
 
@@ -69,37 +68,10 @@ export function InstancesScreen() {
     return instances().slice(start, start + pageSize())
   })
 
-  // ── Live server status ──────────────────────────────────────────
-  async function pingAll() {
-    const run = ++pingRun
-    const targets = instances().filter((i) => i.serverAutoConnect)
-    if (targets.length === 0) return
-    setPings((prev) => {
-      const next = { ...prev }
-      for (const inst of targets) next[inst.id] = { state: "pinging" }
-      return next
-    })
-    await Promise.all(
-      targets.map(async (inst) => {
-        const ac = inst.serverAutoConnect!
-        const status = await pingAutoConnect(ac.host, ac.port)
-        if (run !== pingRun) return
-        setPings((prev) => ({ ...prev, [inst.id]: status }))
-      }),
-    )
-  }
+  // Live server status is provided by useInstancePings().
 
   onMount(() => {
     void launcherService.refreshInstances()
-  })
-
-  createEffect(() => {
-    // Re-ping whenever the set of auto-connect targets changes.
-    const fingerprint = instances()
-      .map((i) => `${i.id}|${i.serverAutoConnect?.host ?? ""}|${i.serverAutoConnect?.port ?? ""}`)
-      .join(";")
-    void fingerprint
-    void pingAll()
   })
 
   // Keep the cursor inside the list as it changes (create/delete/refresh).
@@ -108,17 +80,13 @@ export function InstancesScreen() {
     setSelected((s) => Math.max(0, Math.min(count - 1, s)))
   })
 
-  onCleanup(() => {
-    pingRun++
-  })
-
   function moveBy(delta: number) {
     setSelected((s) => Math.max(0, Math.min(instances().length - 1, s + delta)))
   }
 
   async function refresh() {
     await launcherService.refreshInstances()
-    void pingAll()
+    void reping()
   }
 
   function openDetail() {

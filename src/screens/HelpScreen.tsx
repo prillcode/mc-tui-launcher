@@ -7,6 +7,7 @@ import { Centered } from "../components/Centered"
 
 const KEYS: Array<[string, string]> = [
   ["↑/↓ ←/→", "navigate lists & the instance grid"],
+  ["Tab", "switch focus (home: instances ↔ menu)"],
   ["Enter", "open instance details"],
   ["l", "launch the selected instance"],
   ["c", "create an instance"],

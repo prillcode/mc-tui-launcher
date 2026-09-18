@@ -72,13 +72,14 @@ export function App(props: { clipboard?: ClipboardService }): JSX.Element {
       navigate("help")
       return
     }
-    // Global jumps only from the home screen so lists keep their keys
+    // Global jumps only from the home screen so lists keep their keys.
+    // ('l' is not a global shortcut — it launches the selected instance on
+    // the home/instance screens; Logs is in the home menu.)
     if (screen() !== "home") return
     if (key.name === "i") navigate("instances")
     else if (key.name === "a") navigate("login")
     else if (key.name === "m") navigate("mods")
     else if (key.name === "s") navigate("settings")
-    else if (key.name === "l") navigate("logs")
   })
 
   return (

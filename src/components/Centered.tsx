@@ -11,11 +11,11 @@ import type { JSX } from "solid-js"
  * their children centered within the column (e.g. the home banner and
  * menu) add `alignItems="center"` themselves.
  */
-export function Centered(props: { children: JSX.Element; maxWidth?: number }) {
+export function Centered(props: { children: JSX.Element; maxWidth?: number; paddingY?: number }) {
   const dims = useTerminalDimensions()
   const width = () => Math.max(16, Math.min(props.maxWidth ?? 96, dims().width - 4))
   return (
-    <box flexGrow={1} flexDirection="column" alignItems="center" paddingY={1}>
+    <box flexGrow={1} flexDirection="column" alignItems="center" paddingY={props.paddingY ?? 1}>
       <box flexDirection="column" flexGrow={1} width={width()}>
         {props.children}
       </box>
