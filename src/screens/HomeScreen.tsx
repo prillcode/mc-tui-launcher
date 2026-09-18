@@ -67,7 +67,7 @@ export function HomeScreen() {
         hints={[
           ["↑/↓", "navigate"],
           ["Enter", "select"],
-          ["q", "quit"],
+          ["q", "quit (press twice)"],
           ["?", "help"],
         ]}
       />

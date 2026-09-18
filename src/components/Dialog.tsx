@@ -1,13 +1,19 @@
-import { Show, type JSX } from "solid-js"
+import type { JSX } from "solid-js"
 
 /**
- * A centered modal dialog. Children are rendered inside a bordered box;
- * the parent decides key handling and dismissal.
+ * A centered modal dialog rendered as a full-screen overlay. The parent
+ * decides key handling and dismissal; this component is purely visual.
  */
 export function Dialog(props: { title: string; children: JSX.Element }) {
   return (
     <box
-      style={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      justifyContent="center"
+      alignItems="center"
       backgroundColor="#00000080"
     >
       <box

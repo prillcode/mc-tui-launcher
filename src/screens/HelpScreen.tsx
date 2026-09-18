@@ -17,7 +17,7 @@ const KEYS: Array<[string, string]> = [
   ["i/m/s/a", "instances / mods / settings / accounts"],
   ["Esc", "back / close / cancel"],
   ["?", "help"],
-  ["q", "quit"],
+  ["q", "quit (press twice to confirm)"],
 ]
 
 export function HelpScreen() {
