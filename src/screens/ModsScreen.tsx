@@ -21,9 +21,10 @@ import type { InstalledMod, ModrinthProject } from "@prillcode/mc-launcher-core"
  * like Fabric API are resolved and installed automatically by the core).
  *
  * Modes:
- *   installed    — mods in the selected instance; x removes, e toggles
- *   search-input — type a query, Enter runs the search
- *   results      — search hits; Enter installs (with dependencies)
+ *   installed     — mods in the selected instance; x removes, e toggles
+ *   search-input  — type a query, Enter runs the search
+ *   results       — search hits; Enter installs (with dependencies)
+ *   import-input  — path to a local .jar, Enter imports it
  */
 export function ModsScreen() {
   const [selected, setSelected] = createSignal(0)
@@ -158,6 +159,7 @@ export function ModsScreen() {
   }
 
   let importInputRef: { value: string } | undefined
+  let importValue = ""
 
   function openImport() {
     const inst = instance()
@@ -177,7 +179,9 @@ export function ModsScreen() {
   async function runImport() {
     const inst = instance()
     if (!inst) return
-    const jarPath = importInputRef?.value ?? ""
+    // onSubmit may deliver the value or nothing depending on runtime —
+    // prefer the argument, fall back to the tracked input value.
+    const jarPath = importValue || importInputRef?.value || ""
     try {
       const mod = await launcherService.importModFile(inst.id, jarPath)
       // Defer the mode switch so the submitting Enter isn't re-dispatched
@@ -283,6 +287,24 @@ export function ModsScreen() {
             </box>
             <text fg="#6c7086">Enter searches · Esc cancels</text>
           </Match>
+          <Match when={mode() === "import-input"}>
+            <box flexDirection="row">
+              <text fg="#a6e3a1">Import mod file: </text>
+              <input
+                placeholder="/path/to/mod.jar — must be a .JAR file"
+                focused
+                ref={(el) => (importInputRef = el)}
+                onInput={(value) => {
+                  if (typeof value === "string") importValue = value
+                }}
+                onSubmit={(value) => {
+                  if (typeof value === "string") importValue = value
+                  void runImport()
+                }}
+              />
+            </box>
+            <text fg="#6c7086">Enter imports (copies into the instance's mods dir) · Esc cancels</text>
+          </Match>
           <Match when={mode() === "results"}>
             <text fg="#cdd6f4" attributes={1}>
               Search results — Enter to install (dependencies are resolved automatically)
@@ -328,21 +350,24 @@ export function ModsScreen() {
         hints={
           mode() === "search-input"
             ? [["Enter", "search"], ["Esc", "cancel"]]
-            : mode() === "results"
-              ? [
-                  ["↑/↓", "navigate"],
-                  ["Enter", "install"],
-                  ["s", "new search"],
-                  ["Esc", "back"],
-                ]
-              : [
-                  ["s", "search Modrinth"],
-                  ["e", "enable/disable"],
-                  ["x", "remove"],
-                  ["←/→", "instance"],
-                  ["r", "refresh"],
-                  ["Esc", "back"],
-                ]
+            : mode() === "import-input"
+              ? [["Enter", "import"], ["Esc", "cancel"]]
+              : mode() === "results"
+                ? [
+                    ["↑/↓", "navigate"],
+                    ["Enter", "install"],
+                    ["s", "new search"],
+                    ["Esc", "back"],
+                  ]
+                : [
+                    ["s", "search Modrinth"],
+                    ["i", "import jar"],
+                    ["e", "enable/disable"],
+                    ["x", "remove"],
+                    ["←/→", "instance"],
+                    ["r", "refresh"],
+                    ["Esc", "back"],
+                  ]
         }
       />
     </box>
