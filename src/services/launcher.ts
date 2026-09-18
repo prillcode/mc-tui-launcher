@@ -5,6 +5,7 @@ import {
   getLauncherPaths,
   setLogger,
   getSettings,
+  setSetting as coreSetSetting,
   type Logger,
   type LogLevel,
   type MinecraftProfile,
@@ -14,6 +15,7 @@ import {
   type ModrinthProject,
   type InstalledMod,
   type ServerPingResult,
+  type LauncherSettings,
 } from "@prillcode/mc-launcher-core"
 import {
   appendLog,
@@ -146,6 +148,12 @@ class LauncherService {
 
   getSettings() {
     return getSettings()
+  }
+
+  /** Persist a single launcher setting (writes through the core's
+   *  lazy-loading settings store — no initSettings call needed). */
+  setSetting<K extends keyof LauncherSettings>(key: K, value: LauncherSettings[K]): Promise<void> {
+    return coreSetSetting(key, value)
   }
 
   async logout(): Promise<void> {

@@ -1,43 +1,172 @@
-import { onMount, For, createSignal } from "solid-js"
+import { onMount, For, Show, createSignal } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
-import { screen, goBack, setStatusMessage } from "../app/state"
+import { screen, goBack, setStatusMessage, setTextInputActive } from "../app/state"
 import { launcherService } from "../services/launcher"
 import { appConfig } from "../services/config"
 import { KeyHints } from "../components/KeyHints"
+import type { LauncherSettings } from "@prillcode/mc-launcher-core"
 
 /**
- * Settings: read-only view of current launcher settings for now.
- * Editing arrives with the MVP polish pass.
+ * Settings: editable list with a row cursor.
+ *
+ * Editable rows (Enter/e opens the inline editor, Enter saves, Esc
+ * cancels):
+ *   - Java path (string, empty = auto-detect)
+ *   - default min/max memory (positive integers)
+ *   - default resolution width/height (positive integers)
+ *   - close on launch (toggle — saves immediately on Enter)
+ *
+ * defaultAuthMode is intentionally read-only (it belongs to the offline
+ * login work) and the blockhaven* keys are Electron-launcher legacy.
  */
+type EditableKey =
+  | "javaPath"
+  | "defaultMinMemory"
+  | "defaultMaxMemory"
+  | "defaultResolutionWidth"
+  | "defaultResolutionHeight"
+  | "closeOnLaunch"
+
+interface Row {
+  key: EditableKey
+  label: string
+  kind: "string" | "number" | "toggle"
+  value: string
+}
+
 export function SettingsScreen() {
-  const [settings, setSettings] = createSignal<Awaited<ReturnType<typeof launcherService.getSettings>> | null>(null)
+  const [settings, setSettings] = createSignal<LauncherSettings | null>(null)
+  const [selected, setSelected] = createSignal(0)
+  const [editing, setEditing] = createSignal<Row | null>(null)
+  let editValue = ""
+
+  async function reload() {
+    setSettings(await launcherService.getSettings())
+  }
 
   onMount(async () => {
     try {
-      setSettings(await launcherService.getSettings())
+      await reload()
     } catch (err) {
       setStatusMessage(`Failed to load settings: ${err instanceof Error ? err.message : String(err)}`)
     }
   })
 
-  useKeyboard((key) => {
-    if (screen() !== "settings") return
-    if (key.name === "escape") goBack()
-  })
-
-  const rows = () => {
+  const rows = (): Row[] => {
     const s = settings()
     if (!s) return []
     return [
-      ["Default auth mode", s.defaultAuthMode],
-      ["Memory range", `${s.defaultMinMemory}–${s.defaultMaxMemory} MB`],
-      ["Java path", s.javaPath || "(auto-detect)"],
-      ["Close on launch", s.closeOnLaunch ? "yes" : "no"],
-      ["Default resolution", `${s.defaultResolutionWidth}x${s.defaultResolutionHeight}`],
-      ["BlockHaven server", `${s.blockhavenDefaultHost}:${s.blockhavenDefaultPort}`],
-      ["Data root", appConfig.dataRoot],
-    ] as Array<[string, string]>
+      { key: "javaPath", label: "Java path", kind: "string", value: s.javaPath },
+      {
+        key: "defaultMinMemory",
+        label: "Default min memory (MB)",
+        kind: "number",
+        value: String(s.defaultMinMemory),
+      },
+      {
+        key: "defaultMaxMemory",
+        label: "Default max memory (MB)",
+        kind: "number",
+        value: String(s.defaultMaxMemory),
+      },
+      {
+        key: "defaultResolutionWidth",
+        label: "Default resolution W",
+        kind: "number",
+        value: String(s.defaultResolutionWidth),
+      },
+      {
+        key: "defaultResolutionHeight",
+        label: "Default resolution H",
+        kind: "number",
+        value: String(s.defaultResolutionHeight),
+      },
+      {
+        key: "closeOnLaunch",
+        label: "Close on launch",
+        kind: "toggle",
+        value: s.closeOnLaunch ? "yes" : "no",
+      },
+    ]
   }
+
+  function closeEditor() {
+    setTextInputActive(false)
+    setEditing(null)
+  }
+
+  function openEditor(row: Row) {
+    // Defer so the opening keystroke can't leak into the fresh input.
+    setTimeout(() => {
+      editValue = row.value
+      setTextInputActive(true)
+      setEditing(row)
+    }, 0)
+  }
+
+  /** Save a value, reload settings, and report the outcome. */
+  async function persist(save: () => Promise<void>, label: string) {
+    try {
+      await save()
+      await reload()
+      setStatusMessage(`Saved ${label}`)
+    } catch (err) {
+      setStatusMessage(`Failed to save ${label}: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async function saveEditor(value: string) {
+    const row = editing()
+    if (!row) return
+    const raw = (typeof value === "string" && value.length > 0 ? value : editValue).trim()
+
+    if (row.kind === "number") {
+      if (!/^\d+$/.test(raw) || Number.parseInt(raw, 10) <= 0) {
+        setStatusMessage(`"${row.label}" must be a positive integer`)
+        return // stay in the editor
+      }
+      const n = Number.parseInt(raw, 10)
+      // Keep the editor open through the async save so the re-dispatched
+      // Enter is swallowed, then close on the next macrotask.
+      await persist(() => launcherService.setSetting(row.key, n), row.label)
+    } else {
+      await persist(() => launcherService.setSetting(row.key, raw), row.label)
+    }
+    setTimeout(closeEditor, 0)
+  }
+
+  function activate() {
+    const row = rows()[selected()]
+    if (!row) return
+    if (row.kind === "toggle") {
+      const s = settings()
+      if (!s) return
+      void persist(() => launcherService.setSetting("closeOnLaunch", !s.closeOnLaunch), row.label)
+      return
+    }
+    openEditor(row)
+  }
+
+  useKeyboard((key) => {
+    if (screen() !== "settings") return
+
+    // While an editor is open only Esc reaches the screen handler (the
+    // input itself handles Enter/submit).
+    if (editing()) {
+      if (key.name === "escape") closeEditor()
+      return
+    }
+
+    if (key.name === "escape") {
+      goBack()
+    } else if (key.name === "up" || key.name === "k") {
+      setSelected((s) => Math.max(0, s - 1))
+    } else if (key.name === "down" || key.name === "j") {
+      setSelected((s) => Math.min(rows().length - 1, s + 1))
+    } else if (key.name === "return" || key.name === "enter" || key.name === "e") {
+      activate()
+    }
+  })
 
   return (
     <box flexDirection="column" flexGrow={1}>
@@ -47,17 +176,60 @@ export function SettingsScreen() {
         </text>
         <box height={1} />
         <For each={rows()}>
-          {([label, value]) => (
+          {(row, i) => (
             <box flexDirection="row" height={1}>
-              <text fg="#a6adc8">{label.padEnd(20)}</text>
-              <text fg="#cdd6f4">{value}</text>
+              <Show
+                when={editing()?.key === row.key}
+                fallback={
+                  <>
+                    <text
+                      fg={selected() === i() ? "#89b4fa" : "#a6adc8"}
+                      attributes={selected() === i() ? 1 : 0}
+                    >
+                      {selected() === i() ? "▸ " : "  "}
+                      {row.label.padEnd(26)}
+                    </text>
+                    <text fg="#cdd6f4">{row.value || "(auto-detect)"}</text>
+                  </>
+                }
+              >
+                <text fg="#89b4fa">{"  "}{row.label.padEnd(26)}</text>
+                <input
+                  flexGrow={1}
+                  value={row.value}
+                  placeholder="Enter saves · Esc cancels"
+                  focused
+                  onInput={(value) => {
+                    if (typeof value === "string") editValue = value
+                  }}
+                  onSubmit={(value) => void saveEditor(typeof value === "string" ? value : editValue)}
+                />
+              </Show>
             </box>
           )}
         </For>
         <box height={1} />
-        <text fg="#6c7086">Editing arrives with the MVP polish pass. MS_CLIENT_ID is read from the environment.</text>
+        <text fg="#6c7086">  Auth mode:      {settings()?.defaultAuthMode ?? "microsoft"} (read-only)</text>
+        <text fg="#6c7086">
+          {"  "}BlockHaven:     {settings()?.blockhavenDefaultHost ?? "—"}:{settings()?.blockhavenDefaultPort ?? "—"} (legacy)
+        </text>
+        <text fg="#6c7086">  Data root:      {appConfig.dataRoot}</text>
       </box>
-      <KeyHints hints={[["Esc", "back"]]} />
+      <KeyHints
+        hints={
+          editing()
+            ? [
+                ["type", "value"],
+                ["Enter", "save"],
+                ["Esc", "cancel"],
+              ]
+            : [
+                ["↑/↓", "navigate"],
+                ["Enter/e", "edit"],
+                ["Esc", "back"],
+              ]
+        }
+      />
     </box>
   )
 }
