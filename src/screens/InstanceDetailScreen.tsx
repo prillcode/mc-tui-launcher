@@ -107,14 +107,14 @@ export function InstanceDetailScreen() {
       return
     }
     const [host, portStr] = trimmed.split(":")
-    const port = portStr ? Number.parseInt(portStr, 10) : 25565
-    if (!host || Number.isNaN(port) || port < 1 || port > 65535) {
+    const port = portStr ? Number.parseInt(portStr, 10) : undefined
+    if (!host || (port !== undefined && (Number.isNaN(port) || port < 1 || port > 65535))) {
       setStatusMessage("Invalid server — use host[:port], e.g. localhost:25565")
       return
     }
     try {
       await launcherService.setInstanceAutoConnect(inst.id, host, port)
-      setStatusMessage(`Auto-connecting to ${host}:${port} on launch`)
+      setStatusMessage(port ? `Auto-connecting to ${host}:${port} on launch` : `Auto-connecting to ${host} on launch`)
     } catch (err) {
       setStatusMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`)
     }
@@ -273,7 +273,9 @@ export function InstanceDetailScreen() {
                 Server:{"       "}
                 {(() => {
                   const ac = instance()!.serverAutoConnect
-                  return ac ? `${ac.host}:${ac.port} (auto-connect)` : "not set — press 'a' to set"
+                  return ac
+                    ? `${ac.host}${ac.port !== undefined ? ":" + ac.port : ""} (auto-connect)`
+                    : "not set — press 'a' to set"
                 })()}
               </text>
             </Show>

@@ -182,9 +182,12 @@ class LauncherService {
     await this.refreshInstances()
   }
 
-  /** Auto-join a server on launch (quickPlayMultiplayer). */
-  async setInstanceAutoConnect(instanceId: string, host: string, port: number): Promise<void> {
-    await this.core.instances.update(instanceId, { serverAutoConnect: { host, port } })
+  /** Auto-join a server on launch (quickPlayMultiplayer). Port is
+   *  optional — the game applies the vanilla default (25565). */
+  async setInstanceAutoConnect(instanceId: string, host: string, port?: number): Promise<void> {
+    await this.core.instances.update(instanceId, {
+      serverAutoConnect: port !== undefined ? { host, port } : { host },
+    })
     await this.refreshInstances()
   }
 
