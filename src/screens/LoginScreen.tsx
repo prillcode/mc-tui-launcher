@@ -1,0 +1,114 @@
+import { onMount, onCleanup, Show, Switch, Match } from "solid-js"
+import { useKeyboard } from "@opentui/solid"
+import {
+  screen,
+  deviceCode,
+  loginStatus,
+  loginError,
+  setLoginStatus,
+  setDeviceCode,
+  setLoginError,
+  setProfile,
+  setStatusMessage,
+  goBack,
+} from "../app/state"
+import { launcherService } from "../services/launcher"
+import { KeyHints } from "../components/KeyHints"
+
+/**
+ * Microsoft device-code login.
+ *
+ * The verification URL and short code are always visible as text; a QR
+ * code is rendered when the terminal can fit it. Esc cancels the UI
+ * flow (the pending MSAL request is simply abandoned; starting a new
+ * login resets MSAL state, as in the reference implementation).
+ */
+export function LoginScreen() {
+  let flowStarted = false
+
+  onMount(async () => {
+    if (flowStarted) return
+    flowStarted = true
+
+    setLoginStatus("requesting-code")
+    setLoginError(null)
+    setDeviceCode(null)
+
+    try {
+      const code = await launcherService.startLogin()
+      setDeviceCode(code)
+      setLoginStatus("awaiting-user")
+
+      // Await completion in the background; do not block the UI
+      setLoginStatus("completing")
+      const profileResult = await launcherService.completeLogin()
+      setProfile(profileResult)
+      setLoginStatus("success")
+      setStatusMessage(`Signed in as ${profileResult.name}`)
+    } catch (err) {
+      setLoginStatus("error")
+      setLoginError(err instanceof Error ? err.message : String(err))
+    }
+  })
+
+  useKeyboard((key) => {
+    if (screen() !== "login") return
+    if (key.name === "escape") {
+      if (loginStatus() === "success") {
+        setStatusMessage("")
+      } else {
+        setStatusMessage("Login cancelled")
+      }
+      goBack()
+    }
+  })
+
+  return (
+    <box flexDirection="column" flexGrow={1}>
+      <box flexGrow={1} padding={1} flexDirection="row">
+        <box flexDirection="column" flexGrow={1}>
+          <text fg="#cdd6f4" attributes={2}>
+            Microsoft Device Login
+          </text>
+          <box height={1} />
+          <Switch>
+            <Match when={loginStatus() === "requesting-code"}>
+              <text fg="#f9e2af">Requesting device code…</text>
+            </Match>
+            <Match when={deviceCode()}>
+              <text fg="#cdd6f4">1. Open this URL in a browser:</text>
+              <text fg="#89b4fa" attributes={1}>
+                {deviceCode()!.verificationUri}
+              </text>
+              <box height={1} />
+              <text fg="#cdd6f4">2. Enter this code:</text>
+              <text fg="#a6e3a1" attributes={1}>
+                {deviceCode()!.userCode}
+              </text>
+              <box height={1} />
+              <Switch>
+                <Match when={loginStatus() === "awaiting-user" || loginStatus() === "completing"}>
+                  <text fg="#f9e2af">Waiting for you to complete sign-in… (Esc to cancel)</text>
+                </Match>
+                <Match when={loginStatus() === "success"}>
+                  <text fg="#a6e3a1">Signed in successfully!</text>
+                </Match>
+              </Switch>
+            </Match>
+            <Match when={loginError()}>
+              <text fg="#f38ba8">Login failed: {loginError()}</text>
+              <text fg="#6c7086">Esc to go back. Set MS_CLIENT_ID in the environment to enable login.</text>
+            </Match>
+          </Switch>
+        </box>
+        <box width={20} flexDirection="column" justifyContent="center">
+          <Show when={deviceCode()}>
+            <text fg="#6c7086">or scan:</text>
+            <qr_code content={deviceCode()!.verificationUri} scale={1} />
+          </Show>
+        </box>
+      </box>
+      <KeyHints hints={[["Esc", "back / cancel"]]} />
+    </box>
+  )
+}

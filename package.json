@@ -1,0 +1,33 @@
+{
+  "name": "mctui-launcher",
+  "version": "0.1.0",
+  "description": "McTUI Launcher — a keyboard-first terminal Minecraft launcher built with OpenTUI and SolidJS",
+  "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "AP Dev Solutions LLC",
+    "email": "prillcode@gmail.com"
+  },
+  "bin": {
+    "mctui": "./src/index.tsx"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "start": "bun run src/index.tsx",
+    "dev": "bun run src/index.tsx",
+    "build:core": "cd ../mc-launcher-core && pnpm build",
+    "typecheck": "tsc --noEmit",
+    "link": "bun link"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.5.11",
+    "@opentui/qrcode": "^0.5.11",
+    "@opentui/solid": "^0.5.11",
+    "@prillcode/mc-launcher-core": "file:../mc-launcher-core",
+    "solid-js": "1.9.12"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "typescript": "^7.0.2"
+  }
+}
