@@ -84,6 +84,62 @@ export function InstanceDetailScreen() {
 
   const [editingServer, setEditingServer] = createSignal(false)
   const [renaming, setRenaming] = createSignal(false)
+
+  // ── Per-instance memory editor (two steps: min then max) ────────
+  const [memoryStep, setMemoryStep] = createSignal<null | "min" | "max">(null)
+  let memoryMin = 0
+  let memoryValue = ""
+
+  function openMemoryEditor() {
+    const inst = instance()
+    if (!inst || busy()) return
+    // Defer so the opening keystroke ('M') can't leak into the input.
+    setTimeout(() => {
+      memoryMin = inst.minMemoryMb
+      memoryValue = String(inst.minMemoryMb)
+      setTextInputActive(true)
+      setMemoryStep("min")
+    }, 0)
+  }
+
+  function closeMemoryEditor() {
+    setTextInputActive(false)
+    setMemoryStep(null)
+  }
+
+  async function submitMemory(value: string) {
+    const inst = instance()
+    const step = memoryStep()
+    if (!inst || !step) return
+    const raw = String(value ?? "").trim() || memoryValue
+    if (!/^\d+$/.test(raw) || Number.parseInt(raw, 10) <= 0) {
+      setStatusMessage(`${step === "min" ? "Min" : "Max"} memory must be a positive integer (MB)`)
+      return // stay in the editor
+    }
+    const n = Number.parseInt(raw, 10)
+    if (step === "min") {
+      memoryMin = n
+      // Defer the step switch so the submitting Enter isn't handed to
+      // the freshly-mounted max input.
+      setTimeout(() => {
+        memoryValue = String(inst.maxMemoryMb)
+        setMemoryStep("max")
+      }, 0)
+      return
+    }
+    if (memoryMin > n) {
+      setStatusMessage(`Min memory (${memoryMin} MB) cannot exceed max (${n} MB)`)
+      return // stay in the editor
+    }
+    try {
+      await launcherService.setInstanceMemory(inst.id, memoryMin, n)
+      setStatusMessage(`Memory set to ${memoryMin}\u2013${n} MB`)
+    } catch (err) {
+      setStatusMessage(`Failed to set memory: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setTimeout(closeMemoryEditor, 0)
+    }
+  }
   const [confirmDelete, setConfirmDelete] = createSignal(false)
   let deleteTimer: ReturnType<typeof setTimeout> | undefined
   onCleanup(() => clearTimeout(deleteTimer))
@@ -243,6 +299,10 @@ export function InstanceDetailScreen() {
       if (key.name === "escape") closeRename()
       return
     }
+    if (memoryStep()) {
+      if (key.name === "escape") closeMemoryEditor()
+      return
+    }
     if (key.name === "escape") {
       if (confirmDelete()) {
         setConfirmDelete(false)
@@ -268,6 +328,8 @@ export function InstanceDetailScreen() {
       openRename()
     } else if (key.name === "x") {
       void deleteInstance()
+    } else if ((key.name === "m" && key.shift) || key.name === "M") {
+      openMemoryEditor()
     } else if (key.name === "m") {
       openMods()
     }
@@ -305,7 +367,31 @@ export function InstanceDetailScreen() {
               Mod loader:   {instance()!.modLoader === "fabric" ? "fabric" : "vanilla"}
               {instance()!.modLoader === "fabric" ? " (latest at launch)" : ""}
             </text>
-            <text fg="#a6adc8">Memory:       {instance()!.minMemoryMb}–{instance()!.maxMemoryMb} MB</text>
+            <Show
+              when={memoryStep()}
+              keyed
+              fallback={
+                <text fg="#a6adc8">Memory:       {instance()!.minMemoryMb}–{instance()!.maxMemoryMb} MB ('M' to edit)</text>
+              }
+            >
+              {(step: "min" | "max") => (
+                <box flexDirection="row">
+                  <text fg="#89b4fa">{step === "min" ? "Min memory (MB): " : "Max memory (MB): "}</text>
+                  <input
+                    flexGrow={1}
+                    value={step === "min" ? String(instance()!.minMemoryMb) : String(instance()!.maxMemoryMb)}
+                    placeholder="positive integer MB · Enter next/save · Esc cancels"
+                    focused
+                    onInput={(value) => {
+                      if (typeof value === "string") memoryValue = value
+                    }}
+                    onSubmit={(value) =>
+                      void submitMemory(typeof value === "string" && value.length > 0 ? value : memoryValue)
+                    }
+                  />
+                </box>
+              )}
+            </Show>
             <text fg="#a6adc8">Game dir:     {instance()!.gameDirectory}</text>
             <Show
               when={!editingServer()}
@@ -373,7 +459,7 @@ export function InstanceDetailScreen() {
               </Match>
             </Switch>
             <text fg="#6c7086">
-              'f' Fabric · 'n' rename · 'x' delete · 'a' auto-connect · 'p' ping · 'm' mods · Esc back
+              'f' Fabric · 'n' rename · 'x' delete · 'a' auto-connect · 'p' ping · 'M' memory · 'm' mods · Esc back
             </text>
           </Match>
           <Match when={true}>
@@ -387,18 +473,25 @@ export function InstanceDetailScreen() {
             ? [["type", "host[:port]"], ["Enter", "save"], ["Esc", "cancel"]]
             : renaming()
               ? [["type", "new name"], ["Enter", "save"], ["Esc", "cancel"]]
-              : instance() && runningInstanceIds().includes(instance()!.id)
-                ? [["ctrl+x", "close client"], ["m", "mods"], ["Esc", "back"]]
-                : [
-                    ["l/Enter", "launch"],
-                    ["f", "fabric on/off"],
-                    ["a", "auto-connect"],
-                    ["p", "ping"],
-                    ["n", "rename"],
-                    ["x", "delete"],
-                    ["m", "mods"],
-                    ["Esc", "back"],
+              : memoryStep()
+                ? [
+                    ["type", memoryStep() === "min" ? "min MB" : "max MB"],
+                    ["Enter", memoryStep() === "min" ? "next" : "save"],
+                    ["Esc", "cancel"],
                   ]
+                : instance() && runningInstanceIds().includes(instance()!.id)
+                  ? [["ctrl+x", "close client"], ["m", "mods"], ["Esc", "back"]]
+                  : [
+                      ["l/Enter", "launch"],
+                      ["f", "fabric on/off"],
+                      ["a", "auto-connect"],
+                      ["p", "ping"],
+                      ["n", "rename"],
+                      ["x", "delete"],
+                      ["M", "memory"],
+                      ["m", "mods"],
+                      ["Esc", "back"],
+                    ]
         }
       />
     </box>

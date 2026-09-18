@@ -215,6 +215,13 @@ class LauncherService {
     await this.refreshInstances()
   }
 
+  /** Set an instance's min/max heap in MB. These are consumed at launch
+   *  by the core's buildJvmArgs (-Xms/-Xmx). */
+  async setInstanceMemory(instanceId: string, min: number, max: number): Promise<void> {
+    await this.core.instances.update(instanceId, { minMemoryMb: min, maxMemoryMb: max })
+    await this.refreshInstances()
+  }
+
   // ── MVP launch chain ──────────────────────────────────────────
 
   /**
