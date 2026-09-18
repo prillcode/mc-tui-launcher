@@ -150,6 +150,17 @@ class LauncherService {
     return instance
   }
 
+  /** Delete an instance and remove its game directory. */
+  async deleteInstance(id: string): Promise<void> {
+    await this.core.instances.delete(id)
+    await this.refreshInstances()
+  }
+
+  async renameInstance(instanceId: string, name: string): Promise<void> {
+    await this.core.instances.update(instanceId, { name })
+    await this.refreshInstances()
+  }
+
   /** Switch an instance's mod loader. Fabric libraries are fetched
    *  automatically at the next launch. */
   async setInstanceModLoader(instanceId: string, modLoader: "vanilla" | "fabric"): Promise<void> {
@@ -165,11 +176,6 @@ class LauncherService {
 
   async clearInstanceAutoConnect(instanceId: string): Promise<void> {
     await this.core.instances.update(instanceId, { serverAutoConnect: undefined })
-    await this.refreshInstances()
-  }
-
-  async deleteInstance(id: string): Promise<void> {
-    await this.core.instances.delete(id)
     await this.refreshInstances()
   }
 

@@ -8,6 +8,8 @@ import {
   setBusy,
   busy,
   setTextInputActive,
+  modsFocusInstanceId,
+  setModsFocusInstanceId,
 } from "../app/state"
 import { launcherService } from "../services/launcher"
 import { appendLog } from "../app/state"
@@ -47,6 +49,13 @@ export function ModsScreen() {
   }
 
   onMount(() => {
+    // When opened from an instance detail view, focus that instance
+    const focusId = modsFocusInstanceId()
+    if (focusId) {
+      const idx = instances().findIndex((i) => i.id === focusId)
+      if (idx >= 0) setInstanceIndex(idx)
+      setModsFocusInstanceId(null)
+    }
     void loadMods()
   })
 

@@ -93,6 +93,15 @@ export { statusMessage, busy, progress, setStatusMessage, setBusy, setProgress }
 const [textInputActive, setTextInputActive] = createSignal(false)
 export { textInputActive, setTextInputActive }
 
+// ── Mods screen context ─────────────────────────────────────────
+
+/**
+ * Set when opening the Mods screen from an instance detail view so the
+ * Mods screen shows that instance first. Cleared after consumption.
+ */
+const [modsFocusInstanceId, setModsFocusInstanceId] = createSignal<string | null>(null)
+export { modsFocusInstanceId, setModsFocusInstanceId }
+
 // ── Log ring buffer (rendered by the Logs screen) ───────────────
 
 const LOG_BUFFER_LIMIT = 500

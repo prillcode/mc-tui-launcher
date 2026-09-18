@@ -1,4 +1,4 @@
-import { Show, Switch, Match, createMemo, createSignal } from "solid-js"
+import { Show, Switch, Match, createMemo, createSignal, onCleanup } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import {
   screen,
@@ -7,22 +7,36 @@ import {
   busy,
   progress,
   goBack,
+  navigate,
   setStatusMessage,
   setTextInputActive,
+  setModsFocusInstanceId,
 } from "../app/state"
 import { launcherService } from "../services/launcher"
 import { KeyHints } from "../components/KeyHints"
 import { Progress } from "../components/Progress"
 
 /**
- * Instance detail: metadata + launch + mod-loader/auto-connect setup.
- * This is the MVP path: session check → version fetch → file
- * verify/download → Java provisioning → spawn authenticated Minecraft.
+ * Instance detail: metadata + launch + editing.
+ *
+ * - launch ('l'/Enter): session check → version fetch → file
+ *   verify/download → Java provisioning → spawn Minecraft
+ * - 'f' toggles the Fabric mod loader (libraries load at launch)
+ * - 'a' sets an auto-connect server (host[:port])
+ * - 'n' renames the instance
+ * - 'x' deletes it (press twice to confirm — removes the game dir!)
+ * - 'm' opens the Mods screen focused on this instance
  */
 export function InstanceDetailScreen() {
   const instance = createMemo(() => instances().find((i) => i.id === selectedInstanceId()))
 
   const [editingServer, setEditingServer] = createSignal(false)
+  const [renaming, setRenaming] = createSignal(false)
+  const [confirmDelete, setConfirmDelete] = createSignal(false)
+  let deleteTimer: ReturnType<typeof setTimeout> | undefined
+  onCleanup(() => clearTimeout(deleteTimer))
+
+  let nameInputRef: { value: string } | undefined
 
   async function launch() {
     const inst = instance()
@@ -62,11 +76,6 @@ export function InstanceDetailScreen() {
 
   let serverInputRef: { value: string } | undefined
 
-  function closeServerEditor() {
-    setTextInputActive(false)
-    setEditingServer(false)
-  }
-
   async function saveServer(value: string) {
     const inst = instance()
     closeServerEditor()
@@ -95,20 +104,99 @@ export function InstanceDetailScreen() {
     }
   }
 
+  function closeServerEditor() {
+    setTextInputActive(false)
+    setEditingServer(false)
+  }
+
+  function openRename() {
+    const inst = instance()
+    if (!inst || busy()) return
+    setTimeout(() => {
+      setTextInputActive(true)
+      setRenaming(true)
+    }, 0)
+  }
+
+  function closeRename() {
+    setTextInputActive(false)
+    setRenaming(false)
+  }
+
+  async function saveName(value: string) {
+    const inst = instance()
+    closeRename()
+    if (!inst) return
+    const name = value.trim()
+    if (!name || name === inst.name) return
+    try {
+      await launcherService.renameInstance(inst.id, name)
+      setStatusMessage(`Renamed to "${name}"`)
+    } catch (err) {
+      setStatusMessage(`Rename failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async function deleteInstance() {
+    const inst = instance()
+    if (!inst || busy()) return
+    if (!confirmDelete()) {
+      setConfirmDelete(true)
+      setStatusMessage(`Press 'x' again to delete "${inst.name}" — this removes its game directory!`)
+      clearTimeout(deleteTimer)
+      deleteTimer = setTimeout(() => setConfirmDelete(false), 4000)
+      return
+    }
+    clearTimeout(deleteTimer)
+    setConfirmDelete(false)
+    try {
+      const name = inst.name
+      await launcherService.deleteInstance(inst.id)
+      setStatusMessage(`Deleted instance "${name}"`)
+      goBack()
+    } catch (err) {
+      setStatusMessage(`Delete failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  function openMods() {
+    const inst = instance()
+    if (!inst) return
+    setModsFocusInstanceId(inst.id)
+    navigate("mods")
+  }
+
   useKeyboard((key) => {
     if (screen() !== "instance-detail") return
     if (editingServer()) {
       if (key.name === "escape") closeServerEditor()
       return
     }
+    if (renaming()) {
+      if (key.name === "escape") closeRename()
+      return
+    }
     if (key.name === "escape") {
-      goBack()
-    } else if ((key.name === "l" || key.name === "return" || key.name === "enter") && !busy()) {
+      if (confirmDelete()) {
+        setConfirmDelete(false)
+      } else {
+        goBack()
+      }
+      return
+    }
+    if (busy()) return
+    if (key.name === "l" || key.name === "return" || key.name === "enter") {
       void launch()
-    } else if (key.name === "f" && !busy()) {
+    } else if (key.name === "f") {
       void toggleLoader()
-    } else if (key.name === "a" && !busy()) {
+    } else if (key.name === "a") {
       openServerEditor()
+    } else if (key.name === "n") {
+      openRename()
+    } else if (key.name === "x") {
+      void deleteInstance()
+    } else if (key.name === "m") {
+      openMods()
     }
   })
 
@@ -117,9 +205,26 @@ export function InstanceDetailScreen() {
       <box flexGrow={1} padding={1} flexDirection="column">
         <Switch>
           <Match when={instance()}>
-            <text fg="#cdd6f4" attributes={2}>
-              {instance()!.name}
-            </text>
+            <Show
+              when={!renaming()}
+              fallback={
+                <box flexDirection="row">
+                  <text fg="#a6e3a1">Name: </text>
+                  <input
+                    value={instance()!.name}
+                    placeholder="new name · Enter saves · Esc cancels"
+                    focused
+                    ref={(el) => (nameInputRef = el)}
+                    onSubmit={() => void saveName(nameInputRef?.value ?? "")}
+                  />
+                </box>
+              }
+            >
+              <text fg="#cdd6f4" attributes={2}>
+                {instance()!.name}
+                {confirmDelete() ? "  (press 'x' again to confirm delete!)" : ""}
+              </text>
+            </Show>
             <box height={1} />
             <text fg="#a6adc8">Version:      {instance()!.versionId}</text>
             <text fg="#a6adc8">
@@ -154,7 +259,9 @@ export function InstanceDetailScreen() {
             <Progress />
             <box height={1} />
             <text fg="#a6e3a1">Press 'l' or Enter to launch</text>
-            <text fg="#6c7086">'f' toggles Fabric · 'a' sets auto-connect server · mods live on the Mods screen</text>
+            <text fg="#6c7086">
+              'f' Fabric · 'n' rename · 'x' delete · 'a' auto-connect · 'm' mods · Esc back
+            </text>
           </Match>
           <Match when={true}>
             <text fg="#f38ba8">Instance not found</text>
@@ -165,12 +272,17 @@ export function InstanceDetailScreen() {
         hints={
           editingServer()
             ? [["type", "host[:port]"], ["Enter", "save"], ["Esc", "cancel"]]
-            : [
-                ["l/Enter", "launch"],
-                ["f", "fabric on/off"],
-                ["a", "auto-connect"],
-                ["Esc", "back"],
-              ]
+            : renaming()
+              ? [["type", "new name"], ["Enter", "save"], ["Esc", "cancel"]]
+              : [
+                  ["l/Enter", "launch"],
+                  ["f", "fabric on/off"],
+                  ["a", "auto-connect"],
+                  ["n", "rename"],
+                  ["x", "delete"],
+                  ["m", "mods"],
+                  ["Esc", "back"],
+                ]
         }
       />
     </box>
