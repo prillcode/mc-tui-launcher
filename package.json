@@ -9,12 +9,12 @@
     "email": "prillcode@gmail.com"
   },
   "bin": {
-    "mctui": "./src/index.tsx"
+    "mctui": "./src/cli.ts"
   },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "start": "bun run src/index.tsx",
-    "dev": "bun run src/index.tsx",
+    "start": "bun run src/cli.ts",
+    "dev": "bun run src/cli.ts",
     "build:core": "cd ../mc-launcher-core && pnpm build",
     "typecheck": "tsc --noEmit",
     "link": "bun link"
