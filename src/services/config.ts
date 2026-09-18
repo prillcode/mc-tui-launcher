@@ -1,11 +1,11 @@
 import { setLauncherRoot, getLauncherPaths } from "@prillcode/mc-launcher-core"
 
 /**
- * McTUI Launcher configuration.
+ * Blockhaven MC (bhmc) configuration.
  *
  * The data root resolution order mirrors the core:
  *   1. MC_LAUNCHER_DATA_DIR env var (applied here at startup)
- *   2. platform default (~/.local/share/mctui-launcher on Linux)
+ *   2. platform default (~/.local/share/bhmc-launcher on Linux)
  */
 
 setLauncherRoot(process.env.MC_LAUNCHER_DATA_DIR ?? getLauncherPaths().root)

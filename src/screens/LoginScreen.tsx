@@ -17,7 +17,7 @@ import { KeyHints } from "../components/KeyHints"
 
 /**
  * Open a URL in the user's default browser. The terminal's own
- * Ctrl+click link handling is suppressed while mctui enables mouse
+ * Ctrl+click link handling is suppressed while bhmc enables mouse
  * reporting, so we handle clicks on the link element ourselves.
  */
 function openExternalUrl(url: string): void {

@@ -65,7 +65,7 @@ class LauncherService {
     this.core = new Launcher({
       msClientId: appConfig.msClientId,
       credentialStore: createCredentialStore(),
-      branding: { name: "mctui-launcher", version: appConfig.version },
+      branding: { name: "bhmc-launcher", version: appConfig.version },
     })
     setLogger(new TeeLogger())
   }

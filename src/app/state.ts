@@ -77,7 +77,7 @@ export { instances, versions, setInstances, setVersions }
 
 // ── Status / progress / busy ────────────────────────────────────
 
-const [statusMessage, setStatusMessage] = createSignal("Welcome to McTUI Launcher — press ? for help")
+const [statusMessage, setStatusMessage] = createSignal("Welcome to Blockhaven MC — press ? for help")
 const [busy, setBusy] = createSignal(false)
 const [progress, setProgress] = createSignal<DownloadProgress | null>(null)
 export { statusMessage, busy, progress, setStatusMessage, setBusy, setProgress }

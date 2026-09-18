@@ -1,6 +1,6 @@
-# McTUI Launcher
+# Blockhaven MC (bhmc)
 
-**McTUI Launcher** is a keyboard-first terminal Minecraft launcher built with TypeScript, [OpenTUI](https://github.com/anomalyco/opentui), and SolidJS. It is the first consumer of [`@prillcode/mc-launcher-core`](../mc-launcher-core), the UI-agnostic launcher engine extracted from the BlockHaven launcher.
+**Blockhaven MC (`bhmc`)** is a keyboard-first terminal Minecraft launcher built with TypeScript, [OpenTUI](https://github.com/anomalyco/opentui), and SolidJS. It is the first consumer of [`@prillcode/mc-launcher-core`](../mc-launcher-core), the UI-agnostic launcher engine extracted from the BlockHaven launcher.
 
 **Status: scaffold / early MVP.** Architecture, navigation, and the core dependency are in place; the MVP milestone (full authenticated vanilla launch) is being built against this shell.
 
@@ -14,10 +14,10 @@ cd ../mc-launcher-core && pnpm install && pnpm build
 
 # 2. Install and link the TUI
 pnpm install        # or: bun install
-bun link            # installs the global `mctui` command
+bun link            # installs the global `bhmc` command
 
 # 3. Launch
-mctui               # or: bun run src/index.tsx
+bhmc                # or: bun run src/cli.ts
 ```
 
 ### Microsoft authentication
@@ -26,14 +26,14 @@ The launcher uses the Microsoft device-code flow. Set your Azure AD application 
 
 ```bash
 export MS_CLIENT_ID="your-azure-app-client-id"
-mctui
+bhmc
 ```
 
 The login screen displays the verification URL and short code (plus a QR code); open the URL in any browser, enter the code, and sign in.
 
 ### Data location
 
-All launcher data lives under a single root: `MC_LAUNCHER_DATA_DIR` if set, otherwise the platform default (`~/.local/share/mctui-launcher` on Linux, `%APPDATA%\mctui-launcher` on Windows, `~/Library/Application Support/mctui-launcher` on macOS).
+All launcher data lives under a single root: `MC_LAUNCHER_DATA_DIR` if set, otherwise the platform default (`~/.local/share/bhmc-launcher` on Linux, `%APPDATA%\bhmc-launcher` on Windows, `~/Library/Application Support/bhmc-launcher` on macOS).
 
 ## Controls
 
@@ -74,7 +74,7 @@ src/
 
 - **SolidJS idioms**: signals/memos for state, `onMount`/`onCleanup` for lifecycle, single-render components — no React mental model.
 - **Service boundary**: all core events (progress, stdout, exit) are adapted into Solid signals in `services/launcher.ts`; screens stay declarative.
-- **Credentials**: the core accepts any `KeyValueStore`; McTUI currently uses a JSON-file adapter (`services/credentials.ts`). An encrypted/keychain adapter is a planned hardening step before the MVP is signed off.
+- **Credentials**: the core accepts any `KeyValueStore`; bhmc currently uses a JSON-file adapter (`services/credentials.ts`). An encrypted/keychain adapter is a planned hardening step before the MVP is signed off.
 
 ## Relationship to the other repos
 
@@ -82,7 +82,7 @@ src/
 @prillcode/mc-launcher-core   ← reusable engine (source of truth)
             │
             ▼
-mctui-launcher (this repo)    ← OpenTUI/SolidJS terminal launcher
+bhmc-launcher (this repo)    ← OpenTUI/SolidJS terminal launcher
 
 bh-minecraft-launcher         ← unchanged Electron/React launcher (reference)
 ```

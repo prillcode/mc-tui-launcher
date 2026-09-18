@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
- * McTUI Launcher entry point.
+ * Blockhaven MC (bhmc) entry point.
  *
  * Plain TS (no JSX) so Bun compiles it with the default transform.
  * First action: register the Solid JSX transform plugin — this makes
- * the app independent of cwd/bunfig.toml (a global `mctui` command may
+ * the app independent of cwd/bunfig.toml (a global `bhmc` command may
  * be invoked from any directory; bunfig preload is cwd-relative).
  */
 import "@opentui/solid/preload"

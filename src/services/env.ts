@@ -1,7 +1,7 @@
 /**
  * Loads `.env` from the app directory.
  *
- * Bun's automatic .env loading is cwd-relative, but the global `mctui`
+ * Bun's automatic .env loading is cwd-relative, but the global `bhmc`
  * command may be invoked from any directory — so we load the file
  * relative to the app source instead. Existing process.env values are
  * never overwritten (real environment wins over .env).

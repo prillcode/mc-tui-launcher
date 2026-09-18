@@ -1,7 +1,7 @@
 {
-  "name": "mctui-launcher",
+  "name": "bhmc-launcher",
   "version": "0.1.0",
-  "description": "McTUI Launcher — a keyboard-first terminal Minecraft launcher built with OpenTUI and SolidJS",
+  "description": "Blockhaven Minecraft Launcher (bhmc) — a keyboard-first terminal Minecraft launcher built with OpenTUI and SolidJS",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -9,7 +9,7 @@
     "email": "prillcode@gmail.com"
   },
   "bin": {
-    "mctui": "./src/cli.ts"
+    "bhmc": "./src/cli.ts"
   },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
