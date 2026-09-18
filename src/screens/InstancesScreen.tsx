@@ -1,5 +1,5 @@
-import { onMount, For, Show, createSignal } from "solid-js"
-import { useKeyboard } from "@opentui/solid"
+import { onMount, onCleanup, For, Show, createSignal, createMemo, createEffect } from "solid-js"
+import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import {
   screen,
   instances,
@@ -9,30 +9,134 @@ import {
   setStatusMessage,
   setBusy,
   busy,
+  runningInstanceIds,
 } from "../app/state"
 import { launcherService } from "../services/launcher"
+import { pingAutoConnect, type PingStatus } from "../services/ping"
+import { InstanceCard, CARD_HEIGHT } from "../components/InstanceCard"
 import { KeyHints } from "../components/KeyHints"
+import { Progress } from "../components/Progress"
 
 /**
- * Instances: list, create (vanilla), open detail.
+ * Instances: a responsive grid of instance cards, create, open detail,
+ * and launch in place.
+ *
+ * Each card shows the instance's loader/version/heap plus the live
+ * Server List Ping status and MOTD for its auto-connect target (green =
+ * online, red = unreachable, yellow = checking). Navigation is
+ * grid-aware; when the cards exceed the visible area the grid pages
+ * (`[`/`]` or PageUp/PageDown). One shared hint bar at the bottom.
  */
+const CARD_MIN_WIDTH = 32
+const GRID_GAP = 1
+const MAX_COLUMNS = 3
+/** Fixed rows outside the grid: header/statusbar/hints, screen padding,
+ *  title + spacer, and the (busy-only) progress block. */
+const CHROME_ROWS = 9
+
 export function InstancesScreen() {
+  const dims = useTerminalDimensions()
   const [selected, setSelected] = createSignal(0)
+  const [pings, setPings] = createSignal<Record<string, PingStatus>>({})
   const [creating, setCreating] = createSignal(false)
   const [createSelected, setCreateSelected] = createSignal(0)
   const [pickingLoader, setPickingLoader] = createSignal(false)
   const [loaderSelected, setLoaderSelected] = createSignal(0)
+  let pingRun = 0
 
   const LOADER_CHOICES = ["vanilla", "fabric"] as const
+
+  // ── Responsive grid geometry ────────────────────────────────────
+  const columns = createMemo(() => {
+    const usable = Math.max(1, dims().width - 2)
+    return Math.max(1, Math.min(MAX_COLUMNS, Math.floor(usable / (CARD_MIN_WIDTH + GRID_GAP))))
+  })
+  const cardWidth = createMemo(() => {
+    const usable = Math.max(1, dims().width - 2)
+    const fitted = Math.floor((usable - (columns() - 1) * GRID_GAP) / columns())
+    // Never force a card wider than the terminal can show.
+    return Math.max(Math.min(CARD_MIN_WIDTH, usable), fitted)
+  })
+  const rowsPerPage = createMemo(() => {
+    const usable = Math.max(1, dims().height - CHROME_ROWS)
+    return Math.max(1, Math.floor((usable + GRID_GAP) / (CARD_HEIGHT + GRID_GAP)))
+  })
+  const pageSize = createMemo(() => columns() * rowsPerPage())
+  const page = createMemo(() => Math.floor(selected() / pageSize()))
+  const totalPages = createMemo(() => Math.max(1, Math.ceil(instances().length / pageSize())))
+  const visible = createMemo(() => {
+    const start = page() * pageSize()
+    return instances().slice(start, start + pageSize())
+  })
+
+  // ── Live server status ──────────────────────────────────────────
+  async function pingAll() {
+    const run = ++pingRun
+    const targets = instances().filter((i) => i.serverAutoConnect)
+    if (targets.length === 0) return
+    setPings((prev) => {
+      const next = { ...prev }
+      for (const inst of targets) next[inst.id] = { state: "pinging" }
+      return next
+    })
+    await Promise.all(
+      targets.map(async (inst) => {
+        const ac = inst.serverAutoConnect!
+        const status = await pingAutoConnect(ac.host, ac.port)
+        if (run !== pingRun) return
+        setPings((prev) => ({ ...prev, [inst.id]: status }))
+      }),
+    )
+  }
 
   onMount(() => {
     void launcherService.refreshInstances()
   })
 
+  createEffect(() => {
+    // Re-ping whenever the set of auto-connect targets changes.
+    const fingerprint = instances()
+      .map((i) => `${i.id}|${i.serverAutoConnect?.host ?? ""}|${i.serverAutoConnect?.port ?? ""}`)
+      .join(";")
+    void fingerprint
+    void pingAll()
+  })
+
+  // Keep the cursor inside the list as it changes (create/delete/refresh).
+  createEffect(() => {
+    const count = instances().length
+    setSelected((s) => Math.max(0, Math.min(count - 1, s)))
+  })
+
+  onCleanup(() => {
+    pingRun++
+  })
+
+  function moveBy(delta: number) {
+    setSelected((s) => Math.max(0, Math.min(instances().length - 1, s + delta)))
+  }
+
+  async function refresh() {
+    await launcherService.refreshInstances()
+    void pingAll()
+  }
+
   function openDetail() {
     const instance = instances()[selected()]
-    if (instance) {
-      navigate("instance-detail", instance.id)
+    if (instance) navigate("instance-detail", instance.id)
+  }
+
+  async function launchSelected() {
+    const inst = instances()[selected()]
+    if (!inst || busy()) return
+    if (runningInstanceIds().includes(inst.id)) {
+      setStatusMessage("Already running — press Enter for details, then ctrl+x to close")
+      return
+    }
+    try {
+      await launcherService.launchInstance(inst)
+    } catch (err) {
+      setStatusMessage(`Launch failed: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -100,12 +204,29 @@ export function InstancesScreen() {
       return
     }
 
+    // ── Grid navigation ───────────────────────────────────────────
     if (key.name === "up" || key.name === "k") {
-      setSelected((s) => Math.max(0, s - 1))
+      moveBy(-columns())
     } else if (key.name === "down" || key.name === "j") {
-      setSelected((s) => Math.min(instances().length - 1, s + 1))
+      moveBy(columns())
+    } else if (key.name === "left") {
+      moveBy(-1)
+    } else if (key.name === "right") {
+      moveBy(1)
+    } else if (key.name === "[" || key.name === "pageup") {
+      moveBy(-pageSize())
+    } else if (key.name === "]" || key.name === "pagedown") {
+      moveBy(pageSize())
+    } else if (key.name === "home") {
+      setSelected(0)
+    } else if (key.name === "end") {
+      setSelected(Math.max(0, instances().length - 1))
     } else if (key.name === "return" || key.name === "enter") {
       openDetail()
+    } else if (key.name === "l" && !key.ctrl) {
+      void launchSelected()
+    } else if (key.name === "r" && !busy()) {
+      void refresh()
     } else if (key.name === "c" && !busy()) {
       void startCreate()
     }
@@ -173,30 +294,41 @@ export function InstancesScreen() {
             </Show>
           }
         >
-          <text fg="#cdd6f4" attributes={2}>
-            Instances
-          </text>
+          <box flexDirection="row" height={1}>
+            <text fg="#cdd6f4" attributes={2}>
+              Instances
+            </text>
+            <text fg="#585b70"> · {instances().length}</text>
+            <Show when={totalPages() > 1}>
+              <text fg="#6c7086">
+                {"   "}page {page() + 1}/{totalPages()} · {page() * pageSize() + 1}–
+                {Math.min(instances().length, (page() + 1) * pageSize())} of {instances().length}
+              </text>
+            </Show>
+          </box>
           <box height={1} />
           <Show
             when={instances().length > 0}
-            fallback={<text fg="#6c7086">No instances yet — press 'c' to create one.</text>}
+            fallback={
+              <text fg="#6c7086">No instances yet — press 'c' to create one.</text>
+            }
           >
-            <For each={instances()}>
-              {(instance, i) => (
-                <box flexDirection="row" height={1}>
-                  <text fg={selected() === i() ? "#89b4fa" : "#cdd6f4"} attributes={selected() === i() ? 1 : 0}>
-                    {selected() === i() ? "▸ " : "  "}
-                    {instance.name}
-                  </text>
-                  <text fg="#585b70">
-                    {" "}
-                    [{instance.versionId}
-                    {instance.modLoader && instance.modLoader !== "vanilla" ? ` · ${instance.modLoader}` : ""}]
-                  </text>
-                </box>
-              )}
-            </For>
+            <box flexDirection="row" flexWrap="wrap" columnGap={GRID_GAP} rowGap={GRID_GAP}>
+              <For each={visible()}>
+                {(instance) => (
+                  <InstanceCard
+                    instance={instance}
+                    selected={instance.id === instances()[selected()]?.id}
+                    running={runningInstanceIds().includes(instance.id)}
+                    ping={pings()[instance.id] ?? { state: "idle" }}
+                    width={cardWidth()}
+                  />
+                )}
+              </For>
+            </box>
           </Show>
+          <box flexGrow={1} />
+          <Progress />
         </Show>
       </box>
       <KeyHints
@@ -214,9 +346,12 @@ export function InstancesScreen() {
                   ["Esc", "cancel"],
                 ]
               : [
-                  ["↑/↓", "navigate"],
-                  ["Enter", "open"],
-                  ["c", "new instance"],
+                  ["←↑↓→", "navigate"],
+                  ["l", "launch"],
+                  ["Enter", "details"],
+                  ["c", "new"],
+                  ["[ ]", "page"],
+                  ["r", "re-ping"],
                   ["Esc", "back"],
                 ]
         }

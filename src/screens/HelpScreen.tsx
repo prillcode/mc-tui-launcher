@@ -5,14 +5,17 @@ import { appConfig } from "../services/config"
 import { KeyHints } from "../components/KeyHints"
 
 const KEYS: Array<[string, string]> = [
-  ["↑/↓ / j/k", "navigate lists"],
-  ["Enter", "select / activate"],
+  ["↑/↓ ←/→", "navigate lists & the instance grid"],
+  ["Enter", "open instance details"],
+  ["l", "launch the selected instance"],
+  ["c", "create an instance"],
+  ["[ / ]", "page the instance grid"],
+  ["r", "re-ping servers / refresh"],
+  ["M", "edit instance memory (details)"],
+  ["p", "re-ping the server (details)"],
+  ["h", "shader packs mode (Mods)"],
+  ["i/m/s/a", "instances / mods / settings / accounts"],
   ["Esc", "back / close / cancel"],
-  ["/", "search (coming soon)"],
-  ["m", "mods"],
-  ["s", "settings"],
-  ["a", "accounts (login)"],
-  ["i", "instances"],
   ["?", "help"],
   ["q", "quit"],
 ]
