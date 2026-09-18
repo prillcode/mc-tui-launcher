@@ -1,6 +1,7 @@
 import { Switch, Match } from "solid-js"
 import { useRenderer, useKeyboard } from "@opentui/solid"
 import { screen, navigate } from "./state"
+import { createAppClipboard, useCopySelectionOnRelease } from "./clipboard"
 import { Header } from "../components/Header"
 import { StatusBar } from "../components/StatusBar"
 import { HomeScreen } from "../screens/HomeScreen"
@@ -20,9 +21,11 @@ import { HelpScreen } from "../screens/HelpScreen"
  */
 export function App() {
   const renderer = useRenderer()
+  const clipboard = createAppClipboard()
+  useCopySelectionOnRelease(clipboard)
 
   useKeyboard((key) => {
-    if (key.name === "q" && screen() !== "login") {
+    if (key.name === "q") {
       renderer.destroy()
       return
     }

@@ -6,3 +6,8 @@ import { App } from "./app/App"
  * transform plugin is registered.
  */
 await render(() => <App />, { exitOnCtrlC: true })
+
+// Renderer destroyed → terminal restored. Force-exit so pending
+// background handles (e.g. an abandoned MSAL device-code poll) don't
+// keep the process alive.
+process.exit(0)

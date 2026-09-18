@@ -76,12 +76,14 @@ export function LoginScreen() {
               <text fg="#f9e2af">Requesting device code…</text>
             </Match>
             <Match when={deviceCode()}>
-              <text fg="#cdd6f4">1. Open this URL in a browser:</text>
-              <text fg="#89b4fa" attributes={1}>
-                {deviceCode()!.verificationUri}
+              <text fg="#cdd6f4">1. Open this URL in a browser (Ctrl+click opens it):</text>
+              <text fg="#89b4fa">
+                <a href={deviceCode()!.verificationUri}>
+                  <u>{deviceCode()!.verificationUri}</u>
+                </a>
               </text>
               <box height={1} />
-              <text fg="#cdd6f4">2. Enter this code:</text>
+              <text fg="#cdd6f4">2. Enter this code (double-click it to copy):</text>
               <text fg="#a6e3a1" attributes={1}>
                 {deviceCode()!.userCode}
               </text>
@@ -108,7 +110,13 @@ export function LoginScreen() {
           </Show>
         </box>
       </box>
-      <KeyHints hints={[["Esc", "back / cancel"]]} />
+      <KeyHints
+        hints={[
+          ["Ctrl+click", "open link"],
+          ["select", "copy text"],
+          ["Esc", "back / cancel"],
+        ]}
+      />
     </box>
   )
 }
