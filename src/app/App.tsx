@@ -1,7 +1,8 @@
-import { Switch, Match } from "solid-js"
+import { Switch, Match, type JSX } from "solid-js"
 import { useRenderer, useKeyboard } from "@opentui/solid"
+import type { ClipboardService } from "@opentui/core"
 import { screen, navigate } from "./state"
-import { createAppClipboard, useCopySelectionOnRelease } from "./clipboard"
+import { useCopySelectionOnRelease } from "./clipboard"
 import { Header } from "../components/Header"
 import { StatusBar } from "../components/StatusBar"
 import { HomeScreen } from "../screens/HomeScreen"
@@ -19,10 +20,9 @@ import { HelpScreen } from "../screens/HelpScreen"
  * Handles only global keys; screens subscribe to their own keys and
  * clean up automatically when they unmount (Solid owner cleanup).
  */
-export function App() {
+export function App(props: { clipboard?: ClipboardService }): JSX.Element {
   const renderer = useRenderer()
-  const clipboard = createAppClipboard()
-  useCopySelectionOnRelease(clipboard)
+  if (props.clipboard) useCopySelectionOnRelease(props.clipboard)
 
   useKeyboard((key) => {
     if (key.name === "q") {

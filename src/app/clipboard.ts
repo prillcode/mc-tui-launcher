@@ -1,9 +1,9 @@
-import { onCleanup } from "solid-js"
-import { useRenderer, useSelectionHandler } from "@opentui/solid"
+import { useSelectionHandler } from "@opentui/solid"
 import {
   createClipboard,
   createHostClipboard,
   createRendererClipboardAdapter,
+  type CliRenderer,
   type ClipboardService,
 } from "@opentui/core"
 import { setStatusMessage } from "./state"
@@ -11,11 +11,14 @@ import { setStatusMessage } from "./state"
 /**
  * Create a clipboard service: native host clipboard (Wayland/X11/Win32/
  * macOS) plus the terminal clipboard via OSC 52.
+ *
+ * The caller (main.tsx) owns the service and awaits `dispose()` during
+ * shutdown — see docs/core-concepts/lifecycle#clipboard.
  */
-export function createAppClipboard(): ClipboardService {
+export function createAppClipboard(renderer: CliRenderer): ClipboardService {
   return createClipboard({
     host: createHostClipboard(),
-    terminal: createRendererClipboardAdapter(useRenderer()),
+    terminal: createRendererClipboardAdapter(renderer),
   })
 }
 
@@ -42,8 +45,6 @@ export function useCopySelectionOnRelease(clipboard: ClipboardService): void {
         setStatusMessage(`Clipboard error: ${err instanceof Error ? err.message : String(err)}`)
       })
   })
-
-  onCleanup(() => void clipboard.dispose())
 }
 
 function isWritten(result: { status: string }): boolean {
