@@ -19,7 +19,7 @@ import { BlockhavenLogo } from "../components/BlockhavenLogo"
 const CARD_MIN_WIDTH = 32
 const GRID_GAP = 1
 const MAX_COLUMNS = 3
-const LOGO_SIZES = [40, 32, 24, 20, 16, 12, 8]
+const LOGO_SIZES = [32, 24, 20, 16, 12, 8]
 
 /**
  * Home: a centered launch pad.
@@ -72,7 +72,7 @@ export function HomeScreen() {
   // art/2 + 2 rows; the greeting, cards, divided two-line menu items,
   // spacers and chrome take ~30 more.
   const logoSize = createMemo(() => {
-    const maxPixels = 2 * Math.max(2, dims().height - 32)
+    const maxPixels = 2 * Math.max(2, dims().height - 30)
     const byWidth = Math.max(8, columnWidth() - 6)
     return LOGO_SIZES.find((n) => n <= maxPixels && n <= byWidth) ?? 8
   })
@@ -165,7 +165,6 @@ export function HomeScreen() {
           >
             <BlockhavenLogo size={logoSize()} />
           </box>
-          <box height={1} />
           <text fg="#6c7086">
             <Show when={profile()} fallback={<>Sign in with Microsoft to play online — press 'a'.</>}>
               Signed in as {profile()!.name}. Pick an instance to play.
@@ -185,6 +184,15 @@ export function HomeScreen() {
                     running={runningInstanceIds().includes(instance.id)}
                     ping={pings()[instance.id] ?? { state: "idle" }}
                     width={cardWidth()}
+                    onClick={() => {
+                      if (section() === "instances" && i() === instanceIndex()) {
+                        // Clicking the already-selected card launches it.
+                        void launchSelected()
+                      } else {
+                        setSection("instances")
+                        setInstanceIndex(i())
+                      }
+                    }}
                   />
                 )}
               </For>
@@ -195,11 +203,11 @@ export function HomeScreen() {
               +{hiddenCount()} more on the Instances page (press 'i')
             </text>
           </Show>
-          <box height={1} />
           <box width={menuWidth()} flexDirection="column">
             <For each={menu}>
               {(action, i) => {
                 const active = () => section() === "menu" && menuIndex() === i()
+                let downAt: { x: number; y: number } | null = null
                 return (
                   <>
                     <Show when={i() > 0}>
@@ -209,6 +217,19 @@ export function HomeScreen() {
                       flexDirection="column"
                       backgroundColor={active() ? "#242438" : undefined}
                       paddingX={1}
+                      onMouseDown={(e) => {
+                        downAt = { x: e.x, y: e.y }
+                      }}
+                      onMouseUp={(e) => {
+                        if (!downAt || e.button !== 0) return
+                        const moved = Math.abs(e.x - downAt.x) + Math.abs(e.y - downAt.y)
+                        downAt = null
+                        if (moved > 1) return
+                        setSection("menu")
+                        setMenuIndex(i())
+                        setStatusMessage("")
+                        menu[i()]?.run()
+                      }}
                     >
                       <text fg={active() ? "#89b4fa" : "#cdd6f4"} attributes={active() ? 1 : 0}>
                         {active() ? "▸ " : "  "}

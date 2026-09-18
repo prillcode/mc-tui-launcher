@@ -293,13 +293,18 @@ export function InstancesScreen() {
               justifyContent="center"
             >
               <For each={visible()}>
-                {(instance) => (
+                {(instance, i) => (
                   <InstanceCard
                     instance={instance}
                     selected={instance.id === instances()[selected()]?.id}
                     running={runningInstanceIds().includes(instance.id)}
                     ping={pings()[instance.id] ?? { state: "idle" }}
                     width={cardWidth()}
+                    onClick={() => {
+                      const globalIndex = page() * pageSize() + i()
+                      if (selected() === globalIndex) openDetail()
+                      else setSelected(globalIndex)
+                    }}
                   />
                 )}
               </For>

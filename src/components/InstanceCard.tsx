@@ -27,7 +27,12 @@ export function InstanceCard(props: {
   selected: boolean
   running: boolean
   width: number
+  /** Left-click on the card (ignored for selection drags). */
+  onClick?: () => void
 }) {
+  // Distinguish a click from the start of a text-selection drag.
+  let downAt: { x: number; y: number } | null = null
+
   const inner = () => Math.max(8, props.width - 4)
 
   const accent = () => (props.selected ? "#89b4fa" : props.running ? "#a6e3a1" : "#45475a")
@@ -92,6 +97,15 @@ export function InstanceCard(props: {
       paddingX={1}
       flexDirection="column"
       overflow="hidden"
+      onMouseDown={(e) => {
+        downAt = { x: e.x, y: e.y }
+      }}
+      onMouseUp={(e) => {
+        if (!downAt || e.button !== 0) return
+        const moved = Math.abs(e.x - downAt.x) + Math.abs(e.y - downAt.y)
+        downAt = null
+        if (moved <= 1) props.onClick?.()
+      }}
     >
       <box flexDirection="row" height={1}>
         <text fg={props.selected ? "#89b4fa" : "#cdd6f4"} attributes={1} wrapMode="none">

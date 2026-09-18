@@ -1,28 +1,57 @@
 import { For, createMemo } from "solid-js"
-import { BLOCKHAVEN_LOGO, LOGO_CHARS, LOGO_PALETTE } from "../assets/blockhavenLogo"
+import { BLOCKHAVEN_LOGO, LOGO_ALPHABET, LOGO_PALETTE } from "../assets/blockhavenLogo"
+
+interface Cell {
+  t: string
+  b: string
+  empty: boolean
+}
 
 /**
- * The Blockhaven cube logo drawn as classic character-shaded ANSI art.
+ * The Blockhaven cube logo as block pixel art.
  *
- * Each cell is a glyph from LOGO_CHARS (" .:-=+*#%@") chosen by the local
- * brightness and coloured from a monochrome theme ramp (dark navy ->
- * mauve). Nothing is filled in with full blocks, so it reads as terminal
- * art rather than a downscaled image. Grids are pre-generated from the
- * reference launcher's icon.png (scripts/gen-logo-art.py).
+ * The source image is reduced to a small square pixel grid where every
+ * pixel is either the panel background (transparent) or a solid theme
+ * shade. Each terminal cell draws two stacked pixels with "▀" (fg = top
+ * pixel, bg = bottom pixel); cells that are entirely background render
+ * blank. That keeps the pixels square and the surrounding area empty, so
+ * it reads as a grid of filled/empty squares rather than a bitmap.
  */
 export function BlockhavenLogo(props: { size: number }) {
   const art = createMemo(() => BLOCKHAVEN_LOGO[props.size] ?? BLOCKHAVEN_LOGO[16]!)
 
+  const cellRows = createMemo<Cell[][]>(() => {
+    const a = art()
+    const n = a.size
+    const rows: Cell[][] = []
+    for (let r = 0; r < n / 2; r++) {
+      const top = a.rows[r * 2]!
+      const bottom = a.rows[r * 2 + 1]!
+      const cells: Cell[] = []
+      for (let x = 0; x < n; x++) {
+        const ti = LOGO_ALPHABET.indexOf(top[x]!)
+        const bi = LOGO_ALPHABET.indexOf(bottom[x]!)
+        cells.push({
+          t: LOGO_PALETTE[ti] ?? LOGO_PALETTE[0]!,
+          b: LOGO_PALETTE[bi] ?? LOGO_PALETTE[0]!,
+          empty: ti === 0 && bi === 0,
+        })
+      }
+      rows.push(cells)
+    }
+    return rows
+  })
+
   return (
     <box flexDirection="column">
-      <For each={art().rows}>
+      <For each={cellRows()}>
         {(row) => (
           <text wrapMode="none">
-            <For each={[...row]}>
-              {(ch) => {
-                const level = ch.charCodeAt(0) - 48 // rows store '0'..'9'
-                const style = { fg: LOGO_PALETTE[level] ?? "#cba6f7" }
-                return <span style={style}>{LOGO_CHARS[level] ?? " "}</span>
+            <For each={row}>
+              {(cell) => {
+                if (cell.empty) return <span> </span>
+                const style = { fg: cell.t, bg: cell.b }
+                return <span style={style}>▀</span>
               }}
             </For>
           </text>
