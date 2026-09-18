@@ -44,9 +44,9 @@ export function HomeScreen() {
   const { pings } = useInstancePings()
 
   const menu: Array<{ label: string; hint: string; run: () => void }> = [
-    { label: "Play — Instances", hint: "manage & launch", run: () => navigate("instances") },
-    { label: "Account — Microsoft Login", hint: "device-code sign-in", run: () => navigate("login") },
-    { label: "Mods", hint: "Modrinth & installed mods", run: () => navigate("mods") },
+    { label: "Minecraft Instances", hint: "manage & launch", run: () => navigate("instances") },
+    { label: "Account/Login", hint: "device-code sign-in", run: () => navigate("login") },
+    { label: "Mods & Shaders", hint: "Modrinth & installed mods", run: () => navigate("mods") },
     { label: "Settings", hint: "launcher configuration", run: () => navigate("settings") },
     { label: "Logs", hint: "launcher & game output", run: () => navigate("logs") },
     { label: "Help", hint: "keyboard reference", run: () => navigate("help") },
@@ -68,10 +68,10 @@ export function HomeScreen() {
   const hasInstances = () => shownInstances().length > 0
 
   // Largest logo that fits the leftover vertical space: the logo box takes
-  // art/2 + 2 rows and the rest of the page ~19 rows (greeting, cards,
-  // menu, spacers, chrome).
+  // art/2 + 2 rows; the greeting, cards, two-line menu items, spacers and
+  // chrome take ~25 more.
   const logoSize = createMemo(() => {
-    const maxPixels = 2 * Math.max(2, dims().height - 21)
+    const maxPixels = 2 * Math.max(2, dims().height - 27)
     const byWidth = Math.max(8, columnWidth() - 6)
     return LOGO_SIZES.find((n) => n <= maxPixels && n <= byWidth) ?? 8
   })
@@ -200,17 +200,17 @@ export function HomeScreen() {
               {(action, i) => {
                 const active = () => section() === "menu" && menuIndex() === i()
                 return (
-                  <box flexDirection="row" height={1} justifyContent="center">
+                  <box flexDirection="row" height={2} justifyContent="center">
                     <box
-                      flexDirection="row"
-                      height={1}
+                      flexDirection="column"
                       backgroundColor={active() ? "#242438" : undefined}
+                      paddingX={1}
                     >
                       <text fg={active() ? "#89b4fa" : "#cdd6f4"} attributes={active() ? 1 : 0}>
                         {active() ? "▸ " : "  "}
                         {action.label}
                       </text>
-                      <text fg="#585b70"> — {action.hint}</text>
+                      <text fg="#585b70">{"  "}{action.hint}</text>
                     </box>
                   </box>
                 )
