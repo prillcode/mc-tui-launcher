@@ -19,7 +19,7 @@ import { BlockhavenLogo } from "../components/BlockhavenLogo"
 const CARD_MIN_WIDTH = 32
 const GRID_GAP = 1
 const MAX_COLUMNS = 3
-const LOGO_SIZES = [32, 24, 20, 16, 12, 8]
+const LOGO_SIZES = [40, 32, 24, 20, 16, 12, 8]
 
 /**
  * Home: a centered launch pad.
