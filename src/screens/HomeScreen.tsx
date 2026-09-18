@@ -53,6 +53,7 @@ export function HomeScreen() {
   ]
 
   const columnWidth = () => Math.min(100, Math.max(16, dims().width - 4))
+  const menuWidth = () => Math.min(44, Math.max(30, columnWidth() - 8))
 
   const columns = createMemo(() => {
     const usable = Math.max(1, columnWidth())
@@ -68,10 +69,10 @@ export function HomeScreen() {
   const hasInstances = () => shownInstances().length > 0
 
   // Largest logo that fits the leftover vertical space: the logo box takes
-  // art/2 + 2 rows; the greeting, cards, two-line menu items, spacers and
-  // chrome take ~25 more.
+  // art/2 + 2 rows; the greeting, cards, divided two-line menu items,
+  // spacers and chrome take ~30 more.
   const logoSize = createMemo(() => {
-    const maxPixels = 2 * Math.max(2, dims().height - 27)
+    const maxPixels = 2 * Math.max(2, dims().height - 32)
     const byWidth = Math.max(8, columnWidth() - 6)
     return LOGO_SIZES.find((n) => n <= maxPixels && n <= byWidth) ?? 8
   })
@@ -195,12 +196,15 @@ export function HomeScreen() {
             </text>
           </Show>
           <box height={1} />
-          <box width="100%" flexDirection="column">
+          <box width={menuWidth()} flexDirection="column">
             <For each={menu}>
               {(action, i) => {
                 const active = () => section() === "menu" && menuIndex() === i()
                 return (
-                  <box flexDirection="row" height={2} justifyContent="center">
+                  <>
+                    <Show when={i() > 0}>
+                      <text fg="#45475a">{"─".repeat(menuWidth())}</text>
+                    </Show>
                     <box
                       flexDirection="column"
                       backgroundColor={active() ? "#242438" : undefined}
@@ -212,7 +216,7 @@ export function HomeScreen() {
                       </text>
                       <text fg="#585b70">{"  "}{action.hint}</text>
                     </box>
-                  </box>
+                  </>
                 )
               }}
             </For>
