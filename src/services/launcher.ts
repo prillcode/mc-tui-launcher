@@ -25,6 +25,7 @@ import {
 } from "../app/state"
 import { createCredentialStore } from "./credentials"
 import { appConfig } from "./config"
+import { setInstanceRunning } from "../app/state"
 
 /**
  * Tees core log output into a file under the data root and an
@@ -119,6 +120,14 @@ class LauncherService {
     return this.core.mods.importModFile(instanceId, jarPath)
   }
 
+  isInstanceRunning(instanceId: string): boolean {
+    return this.core.isInstanceRunning(instanceId)
+  }
+
+  closeInstance(instanceId: string): void {
+    this.core.closeInstance(instanceId)
+  }
+
   async toggleMod(instanceId: string, projectId: string): Promise<boolean> {
     const result = await this.core.mods.toggleMod(instanceId, projectId)
     return result.enabled
@@ -194,6 +203,9 @@ class LauncherService {
     setBusy(true)
     try {
       setStatusMessage("Checking session…")
+      if (this.core.isInstanceRunning(instance.id)) {
+        throw new Error("Minecraft is already running for this instance")
+      }
       const session = await this.getValidSession()
       if (!session) {
         throw new Error("Not signed in — press 'a' to log in")
@@ -226,11 +238,13 @@ class LauncherService {
         onStdout: (data) => appendLog(`[MC] ${data.trimEnd()}`),
         onStderr: (data) => appendLog(`[MC] ${data.trimEnd()}`),
         onExit: (code) => {
+          setInstanceRunning(instance.id, false)
           appendLog(`Minecraft exited with code ${code}`)
           setStatusMessage(`Minecraft exited (code ${code})`)
         },
       })
 
+      setInstanceRunning(instance.id, true)
       setStatusMessage(`Minecraft launched (pid ${child.pid})`)
       await this.core.instances.markPlayed(instance.id)
       return child.pid

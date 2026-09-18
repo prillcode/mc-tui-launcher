@@ -102,6 +102,21 @@ export { textInputActive, setTextInputActive }
 const [modsFocusInstanceId, setModsFocusInstanceId] = createSignal<string | null>(null)
 export { modsFocusInstanceId, setModsFocusInstanceId }
 
+// ── Running game processes ──────────────────────────────────────
+
+/**
+ * Ids of instances with a live Minecraft child process (same session
+ * only — the launcher cannot know about clients started before it).
+ */
+const [runningInstanceIds, setRunningInstanceIds] = createSignal<string[]>([])
+export { runningInstanceIds }
+
+export function setInstanceRunning(instanceId: string, running: boolean): void {
+  setRunningInstanceIds((prev) =>
+    running ? [...new Set([...prev, instanceId])] : prev.filter((id) => id !== instanceId),
+  )
+}
+
 // ── Log ring buffer (rendered by the Logs screen) ───────────────
 
 const LOG_BUFFER_LIMIT = 500

@@ -11,6 +11,7 @@ import {
   setStatusMessage,
   setTextInputActive,
   setModsFocusInstanceId,
+  runningInstanceIds,
 } from "../app/state"
 import { launcherService } from "../services/launcher"
 import { KeyHints } from "../components/KeyHints"
@@ -41,10 +42,25 @@ export function InstanceDetailScreen() {
   async function launch() {
     const inst = instance()
     if (!inst || busy()) return
+    if (runningInstanceIds().includes(inst.id)) {
+      setStatusMessage("Minecraft is already running — press ctrl+x to close it")
+      return
+    }
     try {
       await launcherService.launchInstance(inst)
     } catch (err) {
       setStatusMessage(`Launch failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  async function closeRunningClient() {
+    const inst = instance()
+    if (!inst || !runningInstanceIds().includes(inst.id)) return
+    setStatusMessage(`Closing Minecraft for "${inst.name}"…`)
+    try {
+      await launcherService.closeInstance(inst.id)
+    } catch (err) {
+      setStatusMessage(`Close failed: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -185,7 +201,11 @@ export function InstanceDetailScreen() {
       return
     }
     if (busy()) return
-    if (key.name === "l" || key.name === "return" || key.name === "enter") {
+    if (key.ctrl && key.name === "x") {
+      void closeRunningClient()
+    } else if (key.ctrl && key.name === "s") {
+      void closeRunningClient()
+    } else if (key.name === "l" || key.name === "return" || key.name === "enter") {
       void launch()
     } else if (key.name === "f") {
       void toggleLoader()
@@ -211,6 +231,7 @@ export function InstanceDetailScreen() {
                 <box flexDirection="row">
                   <text fg="#a6e3a1">Name: </text>
                   <input
+                    flexGrow={1}
                     value={instance()!.name}
                     placeholder="new name · Enter saves · Esc cancels"
                     focused
@@ -239,6 +260,7 @@ export function InstanceDetailScreen() {
                 <box flexDirection="row">
                   <text fg="#a6e3a1">Server: </text>
                   <input
+                    flexGrow={1}
                     placeholder="host[:port] · Enter saves · Esc cancels"
                     focused
                     ref={(el) => (serverInputRef = el)}
@@ -258,7 +280,17 @@ export function InstanceDetailScreen() {
             <box height={1} />
             <Progress />
             <box height={1} />
-            <text fg="#a6e3a1">Press 'l' or Enter to launch</text>
+            <Switch>
+              <Match when={runningInstanceIds().includes(instance()!.id)}>
+                <text fg="#a6e3a1" attributes={1}>
+                  Minecraft is running for this instance
+                </text>
+                <text fg="#6c7086">Press ctrl+x to close the running Minecraft client</text>
+              </Match>
+              <Match when={true}>
+                <text fg="#a6e3a1">Press 'l' or Enter to launch</text>
+              </Match>
+            </Switch>
             <text fg="#6c7086">
               'f' Fabric · 'n' rename · 'x' delete · 'a' auto-connect · 'm' mods · Esc back
             </text>
@@ -274,15 +306,17 @@ export function InstanceDetailScreen() {
             ? [["type", "host[:port]"], ["Enter", "save"], ["Esc", "cancel"]]
             : renaming()
               ? [["type", "new name"], ["Enter", "save"], ["Esc", "cancel"]]
-              : [
-                  ["l/Enter", "launch"],
-                  ["f", "fabric on/off"],
-                  ["a", "auto-connect"],
-                  ["n", "rename"],
-                  ["x", "delete"],
-                  ["m", "mods"],
-                  ["Esc", "back"],
-                ]
+              : instance() && runningInstanceIds().includes(instance()!.id)
+                ? [["ctrl+x", "close client"], ["m", "mods"], ["Esc", "back"]]
+                : [
+                    ["l/Enter", "launch"],
+                    ["f", "fabric on/off"],
+                    ["a", "auto-connect"],
+                    ["n", "rename"],
+                    ["x", "delete"],
+                    ["m", "mods"],
+                    ["Esc", "back"],
+                  ]
         }
       />
     </box>

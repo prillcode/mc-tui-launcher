@@ -279,6 +279,7 @@ export function ModsScreen() {
             <box flexDirection="row">
               <text fg="#89b4fa">Search Modrinth: </text>
               <input
+                flexGrow={1}
                 placeholder="e.g. fabric-api, sodium, minecraft-golf…"
                 focused
                 ref={(el) => (searchInputRef = el)}
@@ -291,6 +292,7 @@ export function ModsScreen() {
             <box flexDirection="row">
               <text fg="#a6e3a1">Import mod file: </text>
               <input
+                flexGrow={1}
                 placeholder="/path/to/mod.jar — must be a .JAR file"
                 focused
                 ref={(el) => (importInputRef = el)}
