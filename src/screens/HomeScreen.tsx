@@ -165,9 +165,6 @@ export function HomeScreen() {
             <BlockhavenLogo size={logoSize()} />
           </box>
           <box height={1} />
-          <text fg="#cdd6f4" attributes={2}>
-            Welcome
-          </text>
           <text fg="#6c7086">
             <Show when={profile()} fallback={<>Sign in with Microsoft to play online — press 'a'.</>}>
               Signed in as {profile()!.name}. Pick an instance to play.
