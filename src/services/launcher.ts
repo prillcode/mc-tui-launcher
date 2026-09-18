@@ -16,6 +16,7 @@ import {
   type InstalledMod,
   type ServerPingResult,
   type LauncherSettings,
+  type DownloadProgress,
 } from "@prillcode/mc-launcher-core"
 import {
   appendLog,
@@ -116,6 +117,40 @@ class LauncherService {
 
   async removeMod(instanceId: string, projectId: string): Promise<void> {
     await this.core.mods.removeMod(instanceId, projectId)
+  }
+
+  // ── Shader packs ──────────────────────────────────────────────
+
+  searchShaders(query: string, instance: Instance) {
+    return this.core.mods.searchShaders(query, instance)
+  }
+
+  listShaders(instanceId: string) {
+    return this.core.mods.listShaders(instanceId)
+  }
+
+  /** Resolve a Modrinth shader hit to its newest version id compatible
+   *  with the instance's game version (mirrors ModService.installFromSearch). */
+  async getShaderVersionId(instance: Instance, slug: string): Promise<string> {
+    const versions = await this.core.modrinth.getVersions(slug, {
+      gameVersions: [instance.versionId],
+    })
+    if (versions.length === 0) {
+      throw new Error(`No shader version available for Minecraft ${instance.versionId}`)
+    }
+    return versions[0]!.id
+  }
+
+  installShaderFromModrinth(
+    instanceId: string,
+    versionId: string,
+    onProgress?: (progress: DownloadProgress) => void,
+  ) {
+    return this.core.mods.installShaderFromModrinth(instanceId, versionId, onProgress)
+  }
+
+  removeShader(instanceId: string, fileName: string): Promise<void> {
+    return this.core.mods.removeShader(instanceId, fileName)
   }
 
   /** Import a local .jar (custom/in-development mod) into an instance. */
