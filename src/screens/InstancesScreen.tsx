@@ -20,6 +20,10 @@ export function InstancesScreen() {
   const [selected, setSelected] = createSignal(0)
   const [creating, setCreating] = createSignal(false)
   const [createSelected, setCreateSelected] = createSignal(0)
+  const [pickingLoader, setPickingLoader] = createSignal(false)
+  const [loaderSelected, setLoaderSelected] = createSignal(0)
+
+  const LOADER_CHOICES = ["vanilla", "fabric"] as const
 
   onMount(() => {
     void launcherService.refreshInstances()
@@ -47,9 +51,11 @@ export function InstancesScreen() {
     if (!version) return
     setBusy(true)
     try {
-      await launcherService.createVanillaInstance(version.id, version.id)
-      setStatusMessage(`Created instance "${version.id}"`)
+      const chosen = LOADER_CHOICES[loaderSelected()] ?? "vanilla"
+      await launcherService.createInstance(version.id, version.id, chosen)
+      setStatusMessage(`Created instance "${version.id}" (${chosen})`)
       setCreating(false)
+      setPickingLoader(false)
     } catch (err) {
       setStatusMessage(`Create failed: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
@@ -61,10 +67,23 @@ export function InstancesScreen() {
     if (screen() !== "instances") return
 
     if (key.name === "escape") {
-      if (creating()) {
+      if (pickingLoader()) {
+        setPickingLoader(false)
+      } else if (creating()) {
         setCreating(false)
       } else {
         goBack()
+      }
+      return
+    }
+
+    if (creating() && pickingLoader()) {
+      if (key.name === "up" || key.name === "k") {
+        setLoaderSelected((s) => Math.max(0, s - 1))
+      } else if (key.name === "down" || key.name === "j") {
+        setLoaderSelected((s) => Math.min(LOADER_CHOICES.length - 1, s + 1))
+      } else if (key.name === "return" || key.name === "enter") {
+        void confirmCreate()
       }
       return
     }
@@ -75,7 +94,8 @@ export function InstancesScreen() {
       } else if (key.name === "down" || key.name === "j") {
         setCreateSelected((s) => Math.min(versions().length - 1, s + 1))
       } else if (key.name === "return" || key.name === "enter") {
-        void confirmCreate()
+        setLoaderSelected(0)
+        setPickingLoader(true)
       }
       return
     }
@@ -97,28 +117,60 @@ export function InstancesScreen() {
         <Show
           when={!creating()}
           fallback={
-            <box flexDirection="column">
-              <text fg="#cdd6f4" attributes={2}>
-                New instance — pick a Minecraft version
-              </text>
-              <box height={1} />
-              <For each={versions().slice(0, 20)}>
-                {(version, i) => (
-                  <box flexDirection="row" height={1}>
-                    <text
-                      fg={createSelected() === i() ? "#89b4fa" : "#cdd6f4"}
-                      attributes={createSelected() === i() ? 1 : 0}
-                    >
-                      {createSelected() === i() ? "▸ " : "  "}
-                      {version.id}
-                    </text>
-                    <text fg="#585b70"> {version.type}</text>
-                  </box>
-                )}
-              </For>
-              <box height={1} />
-              <text fg="#6c7086">↑/↓ + Enter to create (showing 20 most recent releases)</text>
-            </box>
+            <Show
+              when={!pickingLoader()}
+              fallback={
+                <box flexDirection="column">
+                  <text fg="#cdd6f4" attributes={2}>
+                    New instance — pick a mod loader
+                  </text>
+                  <box height={1} />
+                  <For each={[...LOADER_CHOICES]}>
+                    {(loader, i) => (
+                      <box flexDirection="row" height={1}>
+                        <text
+                          fg={loaderSelected() === i() ? "#89b4fa" : "#cdd6f4"}
+                          attributes={loaderSelected() === i() ? 1 : 0}
+                        >
+                          {loaderSelected() === i() ? "▸ " : "  "}
+                          {loader}
+                        </text>
+                        <text fg="#585b70">
+                          {loader === "vanilla"
+                            ? " — plain Minecraft, no mods"
+                            : " — Fabric libraries load on launch; add mods via the Mods screen"}
+                        </text>
+                      </box>
+                    )}
+                  </For>
+                  <box height={1} />
+                  <text fg="#6c7086">↑/↓ + Enter to create · Esc to pick a different version</text>
+                </box>
+              }
+            >
+              <box flexDirection="column">
+                <text fg="#cdd6f4" attributes={2}>
+                  New instance — pick a Minecraft version
+                </text>
+                <box height={1} />
+                <For each={versions().slice(0, 20)}>
+                  {(version, i) => (
+                    <box flexDirection="row" height={1}>
+                      <text
+                        fg={createSelected() === i() ? "#89b4fa" : "#cdd6f4"}
+                        attributes={createSelected() === i() ? 1 : 0}
+                      >
+                        {createSelected() === i() ? "▸ " : "  "}
+                        {version.id}
+                      </text>
+                      <text fg="#585b70"> {version.type}</text>
+                    </box>
+                  )}
+                </For>
+                <box height={1} />
+                <text fg="#6c7086">↑/↓ + Enter to continue (showing 20 most recent releases)</text>
+              </box>
+            </Show>
           }
         >
           <text fg="#cdd6f4" attributes={2}>
@@ -149,18 +201,24 @@ export function InstancesScreen() {
       </box>
       <KeyHints
         hints={
-          creating()
+          pickingLoader()
             ? [
-                ["↑/↓", "version"],
+                ["↑/↓", "loader"],
                 ["Enter", "create"],
-                ["Esc", "cancel"],
+                ["Esc", "back to versions"],
               ]
-            : [
-                ["↑/↓", "navigate"],
-                ["Enter", "open"],
-                ["c", "new instance"],
-                ["Esc", "back"],
-              ]
+            : creating()
+              ? [
+                  ["↑/↓", "version"],
+                  ["Enter", "next: loader"],
+                  ["Esc", "cancel"],
+                ]
+              : [
+                  ["↑/↓", "navigate"],
+                  ["Enter", "open"],
+                  ["c", "new instance"],
+                  ["Esc", "back"],
+                ]
         }
       />
     </box>

@@ -11,6 +11,8 @@ import {
   type Instance,
   type VersionSummary,
   type StoredSession,
+  type ModrinthProject,
+  type InstalledMod,
 } from "@prillcode/mc-launcher-core"
 import {
   appendLog,
@@ -99,6 +101,24 @@ class LauncherService {
     return this.core.listMods(instanceId)
   }
 
+  searchMods(query: string, instance: Instance) {
+    return this.core.mods.searchMods(query, instance)
+  }
+
+  /** Install a Modrinth search hit plus its required dependencies. */
+  installModFromSearch(instanceId: string, hit: Pick<ModrinthProject, "slug" | "title">): Promise<string[]> {
+    return this.core.mods.installFromSearch(instanceId, hit)
+  }
+
+  async removeMod(instanceId: string, projectId: string): Promise<void> {
+    await this.core.mods.removeMod(instanceId, projectId)
+  }
+
+  async toggleMod(instanceId: string, projectId: string): Promise<boolean> {
+    const result = await this.core.mods.toggleMod(instanceId, projectId)
+    return result.enabled
+  }
+
   getSettings() {
     return getSettings()
   }
@@ -121,9 +141,31 @@ class LauncherService {
   }
 
   async createVanillaInstance(name: string, versionId: string): Promise<Instance> {
-    const instance = await this.core.instances.create({ name, versionId, type: "server" })
+    return this.createInstance(name, versionId, "vanilla")
+  }
+
+  async createInstance(name: string, versionId: string, modLoader: "vanilla" | "fabric"): Promise<Instance> {
+    const instance = await this.core.instances.create({ name, versionId, modLoader })
     await this.refreshInstances()
     return instance
+  }
+
+  /** Switch an instance's mod loader. Fabric libraries are fetched
+   *  automatically at the next launch. */
+  async setInstanceModLoader(instanceId: string, modLoader: "vanilla" | "fabric"): Promise<void> {
+    await this.core.instances.update(instanceId, { modLoader })
+    await this.refreshInstances()
+  }
+
+  /** Auto-join a server on launch (quickPlayMultiplayer). */
+  async setInstanceAutoConnect(instanceId: string, host: string, port: number): Promise<void> {
+    await this.core.instances.update(instanceId, { serverAutoConnect: { host, port } })
+    await this.refreshInstances()
+  }
+
+  async clearInstanceAutoConnect(instanceId: string): Promise<void> {
+    await this.core.instances.update(instanceId, { serverAutoConnect: undefined })
+    await this.refreshInstances()
   }
 
   async deleteInstance(id: string): Promise<void> {

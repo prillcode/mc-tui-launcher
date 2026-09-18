@@ -1,7 +1,7 @@
 import { Switch, Match, type JSX } from "solid-js"
 import { useRenderer, useKeyboard } from "@opentui/solid"
 import type { ClipboardService } from "@opentui/core"
-import { screen, navigate } from "./state"
+import { screen, navigate, textInputActive } from "./state"
 import { useCopySelectionOnRelease } from "./clipboard"
 import { Header } from "../components/Header"
 import { StatusBar } from "../components/StatusBar"
@@ -25,6 +25,9 @@ export function App(props: { clipboard?: ClipboardService }): JSX.Element {
   if (props.clipboard) useCopySelectionOnRelease(props.clipboard)
 
   useKeyboard((key) => {
+    // Screens with editor inputs (search, server host) capture keys —
+    // don't quit or navigate on characters the user is typing.
+    if (textInputActive()) return
     if (key.name === "q") {
       renderer.destroy()
       return

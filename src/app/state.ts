@@ -82,11 +82,21 @@ const [busy, setBusy] = createSignal(false)
 const [progress, setProgress] = createSignal<DownloadProgress | null>(null)
 export { statusMessage, busy, progress, setStatusMessage, setBusy, setProgress }
 
+// ── Text input capture ──────────────────────────────────────────
+
+/**
+ * True while a screen editor input (search box, server host field) is
+ * open. The global key handler must ignore keys while this is set so
+ * typing text (including 'q' and '?') does not trigger navigation or
+ * quit.
+ */
+const [textInputActive, setTextInputActive] = createSignal(false)
+export { textInputActive, setTextInputActive }
+
 // ── Log ring buffer (rendered by the Logs screen) ───────────────
 
 const LOG_BUFFER_LIMIT = 500
 const [logLines, setLogLines] = createSignal<string[]>([])
-
 export function appendLog(line: string): void {
   setLogLines((prev) => {
     const next = [...prev, line]
