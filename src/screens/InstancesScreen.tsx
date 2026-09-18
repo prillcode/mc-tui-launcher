@@ -238,6 +238,7 @@ export function InstancesScreen() {
         <Show
           when={!creating()}
           fallback={
+            <box flexGrow={1} flexDirection="column" alignItems="center">
             <Show
               when={!pickingLoader()}
               fallback={
@@ -292,9 +293,10 @@ export function InstancesScreen() {
                 <text fg="#6c7086">↑/↓ + Enter to continue (showing 20 most recent releases)</text>
               </box>
             </Show>
+            </box>
           }
         >
-          <box flexDirection="row" height={1}>
+          <box flexDirection="row" height={1} justifyContent="center">
             <text fg="#cdd6f4" attributes={2}>
               Instances
             </text>
@@ -310,10 +312,18 @@ export function InstancesScreen() {
           <Show
             when={instances().length > 0}
             fallback={
-              <text fg="#6c7086">No instances yet — press 'c' to create one.</text>
+              <box flexDirection="row" justifyContent="center">
+                <text fg="#6c7086">No instances yet — press 'c' to create one.</text>
+              </box>
             }
           >
-            <box flexDirection="row" flexWrap="wrap" columnGap={GRID_GAP} rowGap={GRID_GAP}>
+            <box
+              flexDirection="row"
+              flexWrap="wrap"
+              columnGap={GRID_GAP}
+              rowGap={GRID_GAP}
+              justifyContent="center"
+            >
               <For each={visible()}>
                 {(instance) => (
                   <InstanceCard

@@ -16,6 +16,7 @@ import {
 } from "../app/state"
 import { launcherService } from "../services/launcher"
 import { KeyHints } from "../components/KeyHints"
+import { Centered } from "../components/Centered"
 import { Progress } from "../components/Progress"
 
 /**
@@ -84,6 +85,9 @@ export function InstanceDetailScreen() {
 
   const [editingServer, setEditingServer] = createSignal(false)
   const [renaming, setRenaming] = createSignal(false)
+
+  /** Padded "Label:" column (JSX collapses runs of spaces in text nodes). */
+  const rowLabel = (name: string) => `${name}:`.padEnd(14)
 
   // ── Per-instance memory editor (two steps: min then max) ────────
   const [memoryStep, setMemoryStep] = createSignal<null | "min" | "max">(null)
@@ -337,7 +341,7 @@ export function InstanceDetailScreen() {
 
   return (
     <box flexDirection="column" flexGrow={1}>
-      <box flexGrow={1} padding={1} flexDirection="column">
+      <Centered maxWidth={80}>
         <Switch>
           <Match when={instance()}>
             <Show
@@ -356,22 +360,25 @@ export function InstanceDetailScreen() {
                 </box>
               }
             >
-              <text fg="#cdd6f4" attributes={2}>
-                {instance()!.name}
-                {confirmDelete() ? "  (press 'x' again to confirm delete!)" : ""}
-              </text>
+              <box flexDirection="row" justifyContent="center">
+                <text fg="#cdd6f4" attributes={2}>
+                  {instance()!.name}
+                  {confirmDelete() ? "  (press 'x' again to confirm delete!)" : ""}
+                </text>
+              </box>
             </Show>
             <box height={1} />
-            <text fg="#a6adc8">Version:      {instance()!.versionId}</text>
+            <text fg="#a6adc8">{rowLabel("Version")}{instance()!.versionId}</text>
             <text fg="#a6adc8">
-              Mod loader:   {instance()!.modLoader === "fabric" ? "fabric" : "vanilla"}
+              {rowLabel("Mod loader")}
+              {instance()!.modLoader === "fabric" ? "fabric" : "vanilla"}
               {instance()!.modLoader === "fabric" ? " (latest at launch)" : ""}
             </text>
             <Show
               when={memoryStep()}
               keyed
               fallback={
-                <text fg="#a6adc8">Memory:       {instance()!.minMemoryMb}–{instance()!.maxMemoryMb} MB ('M' to edit)</text>
+                <text fg="#a6adc8">{rowLabel("Memory")}{instance()!.minMemoryMb}–{instance()!.maxMemoryMb} MB ('M' to edit)</text>
               }
             >
               {(step: "min" | "max") => (
@@ -392,7 +399,7 @@ export function InstanceDetailScreen() {
                 </box>
               )}
             </Show>
-            <text fg="#a6adc8">Game dir:     {instance()!.gameDirectory}</text>
+            <text fg="#a6adc8">{rowLabel("Game dir")}{instance()!.gameDirectory}</text>
             <Show
               when={!editingServer()}
               fallback={
@@ -409,7 +416,7 @@ export function InstanceDetailScreen() {
               }
             >
               <text fg="#a6adc8">
-                Server:{"       "}
+                {rowLabel("Server")}
                 {(() => {
                   const ac = instance()!.serverAutoConnect
                   return ac
@@ -466,7 +473,7 @@ export function InstanceDetailScreen() {
             <text fg="#f38ba8">Instance not found</text>
           </Match>
         </Switch>
-      </box>
+      </Centered>
       <KeyHints
         hints={
           editingServer()

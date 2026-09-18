@@ -14,6 +14,7 @@ import {
 } from "../app/state"
 import { launcherService } from "../services/launcher"
 import { KeyHints } from "../components/KeyHints"
+import { Centered } from "../components/Centered"
 
 /**
  * Open a URL in the user's default browser. The terminal's own
@@ -85,7 +86,8 @@ export function LoginScreen() {
 
   return (
     <box flexDirection="column" flexGrow={1}>
-      <box flexGrow={1} padding={1} flexDirection="row">
+      <Centered maxWidth={82}>
+        <box flexDirection="row" flexGrow={1}>
         <box flexDirection="column" flexGrow={1}>
           <text fg="#cdd6f4" attributes={2}>
             Microsoft Device Login
@@ -152,7 +154,8 @@ export function LoginScreen() {
             <qr_code content={deviceCode()!.verificationUri} scale={1} />
           </Show>
         </box>
-      </box>
+        </box>
+      </Centered>
       <KeyHints
         hints={[
           ["click", "open link"],

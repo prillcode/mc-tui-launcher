@@ -4,6 +4,7 @@ import { screen, goBack, setStatusMessage, setTextInputActive } from "../app/sta
 import { launcherService } from "../services/launcher"
 import { appConfig } from "../services/config"
 import { KeyHints } from "../components/KeyHints"
+import { Centered } from "../components/Centered"
 import type { LauncherSettings } from "@prillcode/mc-launcher-core"
 
 /**
@@ -170,10 +171,12 @@ export function SettingsScreen() {
 
   return (
     <box flexDirection="column" flexGrow={1}>
-      <box flexGrow={1} padding={1} flexDirection="column">
-        <text fg="#cdd6f4" attributes={2}>
-          Settings
-        </text>
+      <Centered maxWidth={76}>
+        <box flexDirection="row" justifyContent="center">
+          <text fg="#cdd6f4" attributes={2}>
+            Settings
+          </text>
+        </box>
         <box height={1} />
         <For each={rows()}>
           {(row, i) => (
@@ -214,7 +217,7 @@ export function SettingsScreen() {
           {"  "}BlockHaven:     {settings()?.blockhavenDefaultHost ?? "—"}:{settings()?.blockhavenDefaultPort ?? "—"} (legacy)
         </text>
         <text fg="#6c7086">  Data root:      {appConfig.dataRoot}</text>
-      </box>
+      </Centered>
       <KeyHints
         hints={
           editing()

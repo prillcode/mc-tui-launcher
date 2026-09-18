@@ -14,6 +14,7 @@ import {
 } from "../app/state"
 import { launcherService } from "../services/launcher"
 import { KeyHints } from "../components/KeyHints"
+import { Centered } from "../components/Centered"
 import type { InstalledMod, ModrinthProject } from "@prillcode/mc-launcher-core"
 
 type InstalledShader = { fileName: string; fileSize: number; installedAt: number }
@@ -331,10 +332,12 @@ export function ModsScreen() {
 
   return (
     <box flexDirection="column" flexGrow={1}>
-      <box flexGrow={1} padding={1} flexDirection="column">
-        <text fg="#cdd6f4" attributes={2}>
-          Mods{packsMode() ? " — shader packs" : ""}
-        </text>
+      <Centered maxWidth={96}>
+        <box flexDirection="row" justifyContent="center">
+          <text fg="#cdd6f4" attributes={2}>
+            Mods{packsMode() ? " — shader packs" : ""}
+          </text>
+        </box>
         <Show
           when={instance()}
           fallback={<text fg="#6c7086">No instance selected — create one first (Instances screen, 'c').</text>}
@@ -452,7 +455,7 @@ export function ModsScreen() {
             </Show>
           </Match>
         </Switch>
-      </box>
+      </Centered>
       <KeyHints
         hints={
           mode() === "search-input"
