@@ -16,6 +16,26 @@ import { launcherService } from "../services/launcher"
 import { KeyHints } from "../components/KeyHints"
 
 /**
+ * Open a URL in the user's default browser. The terminal's own
+ * Ctrl+click link handling is suppressed while mctui enables mouse
+ * reporting, so we handle clicks on the link element ourselves.
+ */
+function openExternalUrl(url: string): void {
+  try {
+    if (process.platform === "win32") {
+      Bun.spawn(["cmd", "/c", "start", "", url], { stdio: ["ignore", "ignore", "ignore"] })
+    } else {
+      Bun.spawn([process.platform === "darwin" ? "open" : "xdg-open", url], {
+        stdio: ["ignore", "ignore", "ignore"],
+      })
+    }
+    setStatusMessage("Opened verification URL in browser")
+  } catch (err) {
+    setStatusMessage(`Could not open URL: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+/**
  * Microsoft device-code login.
  *
  * The verification URL and short code are always visible as text; a QR
@@ -76,26 +96,49 @@ export function LoginScreen() {
               <text fg="#f9e2af">Requesting device code…</text>
             </Match>
             <Match when={deviceCode()}>
-              <text fg="#cdd6f4">1. Open this URL in a browser (Ctrl+click opens it):</text>
-              <text fg="#89b4fa">
-                <a href={deviceCode()!.verificationUri}>
-                  <u>{deviceCode()!.verificationUri}</u>
-                </a>
-              </text>
-              <box height={1} />
-              <text fg="#cdd6f4">2. Enter this code (double-click it to copy):</text>
-              <text fg="#a6e3a1" attributes={1}>
-                {deviceCode()!.userCode}
-              </text>
-              <box height={1} />
-              <Switch>
-                <Match when={loginStatus() === "awaiting-user" || loginStatus() === "completing"}>
-                  <text fg="#f9e2af">Waiting for you to complete sign-in… (Esc to cancel)</text>
-                </Match>
-                <Match when={loginStatus() === "success"}>
-                  <text fg="#a6e3a1">Signed in successfully!</text>
-                </Match>
-              </Switch>
+              {(() => {
+                const url = deviceCode()!.verificationUri
+                // Distinguish a plain click from the start of a selection
+                // drag: remember where the press happened and only treat
+                // a release at (roughly) the same cell as a click.
+                let downAt: { x: number; y: number } | null = null
+                return (
+                  <>
+                    <text fg="#cdd6f4">1. Open this URL in a browser (click it):</text>
+                    <box
+                      onMouseDown={(e) => {
+                        downAt = { x: e.x, y: e.y }
+                      }}
+                      onMouseUp={(e) => {
+                        if (!downAt || e.button !== 0) return
+                        const moved = Math.abs(e.x - downAt.x) + Math.abs(e.y - downAt.y)
+                        downAt = null
+                        if (moved <= 1) openExternalUrl(url)
+                      }}
+                    >
+                      <text fg="#89b4fa">
+                        <a href={url}>
+                          <u>{url}</u>
+                        </a>
+                      </text>
+                    </box>
+                    <box height={1} />
+                    <text fg="#cdd6f4">2. Enter this code (double-click it to copy):</text>
+                    <text fg="#a6e3a1" attributes={1}>
+                      {deviceCode()!.userCode}
+                    </text>
+                    <box height={1} />
+                    <Switch>
+                      <Match when={loginStatus() === "awaiting-user" || loginStatus() === "completing"}>
+                        <text fg="#f9e2af">Waiting for you to complete sign-in… (Esc to cancel)</text>
+                      </Match>
+                      <Match when={loginStatus() === "success"}>
+                        <text fg="#a6e3a1">Signed in successfully!</text>
+                      </Match>
+                    </Switch>
+                  </>
+                )
+              })()}
             </Match>
             <Match when={loginError()}>
               <text fg="#f38ba8">Login failed: {loginError()}</text>
@@ -112,7 +155,7 @@ export function LoginScreen() {
       </box>
       <KeyHints
         hints={[
-          ["Ctrl+click", "open link"],
+          ["click", "open link"],
           ["select", "copy text"],
           ["Esc", "back / cancel"],
         ]}

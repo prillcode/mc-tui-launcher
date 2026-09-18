@@ -17,7 +17,7 @@ export function Header() {
   return (
     <box height={1} flexDirection="row" backgroundColor="#1e1e2e">
       <text fg="#cba6f7" attributes={1}>
-        McTUI Launcher
+        Blockhaven Minecraft Launcher
       </text>
       <text fg="#585b70"> │ </text>
       <text fg="#89b4fa">{SCREEN_LABELS[screen()] ?? screen()}</text>

@@ -11,7 +11,7 @@ import { setLauncherRoot, getLauncherPaths } from "@prillcode/mc-launcher-core"
 setLauncherRoot(process.env.MC_LAUNCHER_DATA_DIR ?? getLauncherPaths().root)
 
 export const appConfig = {
-  productName: "McTUI Launcher",
+  productName: "Blockhaven Minecraft Launcher",
   version: "0.1.0",
   msClientId: process.env.MS_CLIENT_ID,
   dataRoot: getLauncherPaths().root,
