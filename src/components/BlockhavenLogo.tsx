@@ -43,9 +43,12 @@ export function BlockhavenLogo(props: { size: number }) {
         {(row) => (
           <text wrapMode="none">
             <For each={row}>
-              {(cell) => (
-                <span {...{ fg: cell.t, bg: cell.b }}>▀</span>
-              )}
+              {(cell) => {
+                // The Solid reconciler only honors fg/bg on text nodes via the
+                // `style` prop (direct fg/bg are ignored for spans).
+                const style = { fg: cell.t, bg: cell.b }
+                return <span style={style}>▀</span>
+              }}
             </For>
           </text>
         )}
