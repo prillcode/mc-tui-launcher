@@ -335,7 +335,7 @@ export function ModsScreen() {
       <Centered maxWidth={96}>
         <box flexDirection="row" justifyContent="center">
           <text fg="#cdd6f4" attributes={2}>
-            Mods{packsMode() ? " — shader packs" : ""}
+            Mods & Shaders{packsMode() ? " — shader packs" : ""}
           </text>
         </box>
         <Show

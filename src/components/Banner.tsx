@@ -7,7 +7,7 @@ const SCREEN_LABELS: Record<string, string> = {
   login: "Microsoft Login",
   instances: "Instances",
   "instance-detail": "Instance",
-  mods: "Mods",
+  mods: "Mods & Shaders",
   settings: "Settings",
   logs: "Logs",
   help: "Help",
