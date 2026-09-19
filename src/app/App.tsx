@@ -3,7 +3,7 @@ import { useRenderer, useKeyboard } from "@opentui/solid"
 import type { ClipboardService } from "@opentui/core"
 import { screen, navigate, textInputActive, setStatusMessage } from "./state"
 import { useCopySelectionOnRelease } from "./clipboard"
-import { Header } from "../components/Header"
+import { Banner } from "../components/Banner"
 import { StatusBar } from "../components/StatusBar"
 import { Dialog } from "../components/Dialog"
 import { HomeScreen } from "../screens/HomeScreen"
@@ -84,7 +84,7 @@ export function App(props: { clipboard?: ClipboardService }): JSX.Element {
 
   return (
     <box flexDirection="column" flexGrow={1}>
-      <Header />
+      <Banner />
       <box flexDirection="column" flexGrow={1}>
         <Switch>
           <Match when={screen() === "home"}>

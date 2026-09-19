@@ -144,7 +144,7 @@ export function HomeScreen() {
         <box flexDirection="column" flexGrow={1} alignItems="center">
           <text fg="#6c7086">
             <Show when={profile()} fallback={<>Sign in with Microsoft to play online — press 'a'.</>}>
-              Signed in as {profile()!.name}. Pick an instance to play.
+              Pick an instance to play.
             </Show>
           </text>
           <box height={1} />
