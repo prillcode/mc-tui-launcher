@@ -180,6 +180,7 @@ export function HomeScreen() {
               +{hiddenCount()} more on the Instances page (press 'i')
             </text>
           </Show>
+          <box height={1} />
           <box width={menuWidth()} flexDirection="column">
             <For each={menu}>
               {(action, i) => {
