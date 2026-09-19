@@ -85,10 +85,8 @@ export function Banner() {
           </box>
         )}
       </For>
-      <box flexDirection="row" width="100%" alignItems="center">
-        <box flexGrow={1} flexDirection="row" justifyContent="center">
-          <text fg="#89b4fa">{title()}</text>
-        </box>
+      <box flexDirection="row" width="100%" alignItems="center" justifyContent="space-between">
+        <text fg="#89b4fa">{title()}</text>
         <Show when={showAccount()}>
           <text fg="#a6e3a1">{account()}</text>
         </Show>
