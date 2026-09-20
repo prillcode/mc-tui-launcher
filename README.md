@@ -37,18 +37,43 @@ All launcher data lives under a single root: `MC_LAUNCHER_DATA_DIR` if set, othe
 
 ## Controls
 
+Every key is a named command on one `@opentui/keymap` keymap, scoped to the
+screen or mode that owns it. The hint bar at the bottom is generated from the
+bindings that are active right now, so it always matches what the keys do;
+press `?` for the full reference.
+
 | Key | Action |
 | --- | --- |
-| `↑/↓` or `j/k` | navigate |
-| `Enter` | select / activate |
+| `↑/↓` `←/→` or `j/k` | navigate lists, menus and the instance grid |
+| `Tab` | switch section (home: instances ↔ menu) |
+| `Enter` | select / open instance details |
+| `l` | launch the selected instance |
+| `c` | create an instance (pick version, then mod loader) |
+| `[` / `]` | page the instance grid |
+| `Home` / `End` | first / last item (logs: top / end) |
+| `t` | jump to the latest log line |
+| `r` | re-ping servers / refresh the current list |
+| `f` | toggle the Fabric mod loader (instance details) |
+| `a` / `n` / `x` | auto-connect server / rename / delete (instance details) |
+| `p` | re-ping the server (instance details) |
+| `Shift+M` | edit instance memory (instance details) |
+| `ctrl+x` | close the running Minecraft client (instance details) |
+| `m` | mods (home) |
+| `s` / `i` / `e` | search Modrinth / import a `.jar` / enable-disable (Mods) |
+| `h` | shader packs mode (Mods) |
 | `Esc` | back / close / cancel |
-| `/` | search (planned) |
-| `m` | mods |
-| `s` | settings |
-| `a` | accounts (login) |
-| `i` | instances |
 | `?` | help |
-| `q` | quit |
+| `q` `q` | quit (press twice) |
+
+### Verifying UI changes without a TTY
+
+The screens are rendered with OpenTUI's in-memory test renderer, so key
+handling and scroll layouts can be checked headlessly:
+
+```bash
+bun run verify          # assertion suite: typing vs. bindings, scroll geometry, q q
+bun run shots instances # print rendered frames for a screen (or all screens)
+```
 
 ## Screens
 
@@ -65,7 +90,7 @@ All launcher data lives under a single root: `MC_LAUNCHER_DATA_DIR` if set, othe
 
 ```
 src/
-├── app/          App shell, navigation, shared reactive state
+├── app/          App shell, navigation, shared reactive state, keymap wiring
 ├── screens/      One module per screen (Solid components)
 ├── components/   Header, StatusBar, KeyHints, Progress, Dialog
 ├── services/     The only place that talks to the core package
@@ -73,6 +98,10 @@ src/
 ```
 
 - **SolidJS idioms**: signals/memos for state, `onMount`/`onCleanup` for lifecycle, single-render components — no React mental model.
+- **One keymap**: `app/keymap.ts` builds the app keymap; each screen registers
+  `useBindings()` layers for the modes it owns and switches them off with
+  `enabled` matchers. Commands carry `desc`/`hint` metadata, which is what the
+  hint bar and the Help screen read.
 - **Service boundary**: all core events (progress, stdout, exit) are adapted into Solid signals in `services/launcher.ts`; screens stay declarative.
 - **Credentials**: the core accepts any `KeyValueStore`; bhmc currently uses a JSON-file adapter (`services/credentials.ts`). An encrypted/keychain adapter is a planned hardening step before the MVP is signed off.
 

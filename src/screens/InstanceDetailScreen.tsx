@@ -1,12 +1,11 @@
 import { Show, Switch, Match, createMemo, createSignal, createEffect, onCleanup } from "solid-js"
-import { useKeyboard, useRenderer } from "@opentui/solid"
+import { useRenderer } from "@opentui/solid"
+import { useBindings } from "@opentui/keymap/solid"
 import type { ServerPingResult } from "@prillcode/mc-launcher-core"
 import {
-  screen,
   instances,
   selectedInstanceId,
   busy,
-  progress,
   goBack,
   navigate,
   setStatusMessage,
@@ -14,6 +13,7 @@ import {
   setModsFocusInstanceId,
   runningInstanceIds,
 } from "../app/state"
+import { HINT, allOf, anyOf, notEditing, when } from "../app/keymap"
 import { launcherService } from "../services/launcher"
 import { KeyHints } from "../components/KeyHints"
 import { Centered } from "../components/Centered"
@@ -309,53 +309,73 @@ export function InstanceDetailScreen() {
     navigate("mods")
   }
 
-  useKeyboard((key) => {
-    if (screen() !== "instance-detail") return
-    if (editingServer()) {
-      if (key.name === "escape") closeServerEditor()
-      return
-    }
-    if (renaming()) {
-      if (key.name === "escape") closeRename()
-      return
-    }
-    if (memoryStep()) {
-      if (key.name === "escape") closeMemoryEditor()
-      return
-    }
-    if (key.name === "escape") {
-      if (confirmDelete()) {
-        setConfirmDelete(false)
-      } else if (confirmLoader()) {
-        setConfirmLoader(false)
-      } else {
-        goBack()
-      }
-      return
-    }
-    if (busy()) return
-    if (key.ctrl && key.name === "x") {
-      void closeRunningClient()
-    } else if (key.ctrl && key.name === "s") {
-      void closeRunningClient()
-    } else if (key.name === "l" || key.name === "return" || key.name === "enter") {
-      void launch()
-    } else if (key.name === "f") {
-      void toggleLoader()
-    } else if (key.name === "a") {
-      openServerEditor()
-    } else if (key.name === "p" && instance()?.serverAutoConnect) {
-      void pingServer()
-    } else if (key.name === "n") {
-      openRename()
-    } else if (key.name === "x") {
-      void deleteInstance()
-    } else if ((key.name === "m" && key.shift) || key.name === "M") {
-      openMemoryEditor()
-    } else if (key.name === "m") {
-      openMods()
-    }
-  })
+  // ── Key bindings (OpenTUI keymap) ───────────────────────────────
+  // Three layers: the Esc/“leave this screen” keys stay live even while a
+  // launch is running; the instance actions are off while busy and while
+  // an editor input holds the keyboard; the input layer only owns Esc.
+  const editingSomething = () => anyOf(
+    when(editingServer, (open) => open),
+    when(renaming, (open) => open),
+    when(memoryStep, (step) => step !== null),
+  )
+
+  function cancelEdit() {
+    if (editingServer()) closeServerEditor()
+    else if (renaming()) closeRename()
+    else if (memoryStep()) closeMemoryEditor()
+  }
+
+  useBindings(() => ({
+    // Esc never blocks: it leaves the screen or dismisses a pending confirm.
+    enabled: notEditing(),
+    commands: [
+      {
+        name: "detail.back",
+        run() {
+          if (confirmDelete()) setConfirmDelete(false)
+          else if (confirmLoader()) setConfirmLoader(false)
+          else goBack()
+        },
+      },
+    ],
+    bindings: [{ key: "escape", cmd: "detail.back", desc: "back", hint: HINT.cancel }],
+  }))
+
+  useBindings(() => ({
+    enabled: allOf(notEditing(), when(busy, (isBusy) => !isBusy)),
+    commands: [
+      { name: "detail.launch", run: () => void launch() },
+      { name: "detail.toggleLoader", run: () => void toggleLoader() },
+      { name: "detail.server", run: () => openServerEditor() },
+      { name: "detail.ping", run: () => void pingServer() },
+      { name: "detail.rename", run: () => openRename() },
+      { name: "detail.delete", run: () => void deleteInstance() },
+      { name: "detail.memory", run: () => openMemoryEditor() },
+      { name: "detail.mods", run: () => openMods() },
+      { name: "detail.close", run: () => void closeRunningClient() },
+    ],
+    bindings: [
+      { key: "l", cmd: "detail.launch", desc: "launch", hint: HINT.primary },
+      { key: "return", cmd: "detail.launch", desc: "launch", hint: HINT.primary },
+      { key: "f", cmd: "detail.toggleLoader", desc: "fabric", hint: HINT.secondary },
+      { key: "a", cmd: "detail.server", desc: "auto-connect", hint: HINT.secondary },
+      { key: "p", cmd: "detail.ping", desc: "ping", hint: HINT.secondary },
+      { key: "n", cmd: "detail.rename", desc: "rename", hint: HINT.secondary },
+      { key: "x", cmd: "detail.delete", desc: "delete", hint: HINT.secondary },
+      // `M` — the parser lowercases bare literals, so this must be shift+m.
+      { key: "shift+m", cmd: "detail.memory", desc: "memory", hint: HINT.secondary },
+      { key: "m", cmd: "detail.mods", desc: "mods", hint: HINT.secondary },
+      // No hint: the body only mentions closing when a client is running.
+      { key: "ctrl+x", cmd: "detail.close" },
+      { key: "ctrl+s", cmd: "detail.close" },
+    ],
+  }))
+
+  useBindings(() => ({
+    enabled: editingSomething(),
+    commands: [{ name: "detail.cancelEdit", run: () => cancelEdit() }],
+    bindings: [{ key: "escape", cmd: "detail.cancelEdit", desc: "cancel", hint: HINT.cancel }],
+  }))
 
   return (
     <box flexDirection="column" flexGrow={1}>
@@ -494,30 +514,14 @@ export function InstanceDetailScreen() {
         </Switch>
       </Centered>
       <KeyHints
-        hints={
+        extra={
           editingServer()
-            ? [["type", "host[:port]"], ["Enter", "save"], ["Esc", "cancel"]]
+            ? [["type", "host[:port]"], ["Enter", "save"]]
             : renaming()
-              ? [["type", "new name"], ["Enter", "save"], ["Esc", "cancel"]]
+              ? [["type", "new name"], ["Enter", "save"]]
               : memoryStep()
-                ? [
-                    ["type", memoryStep() === "min" ? "min MB" : "max MB"],
-                    ["Enter", memoryStep() === "min" ? "next" : "save"],
-                    ["Esc", "cancel"],
-                  ]
-                : instance() && runningInstanceIds().includes(instance()!.id)
-                  ? [["ctrl+x", "close client"], ["m", "mods"], ["Esc", "back"]]
-                  : [
-                      ["l/Enter", "launch"],
-                      ["f", "fabric on/off"],
-                      ["a", "auto-connect"],
-                      ["p", "ping"],
-                      ["n", "rename"],
-                      ["x", "delete"],
-                      ["M", "memory"],
-                      ["m", "mods"],
-                      ["Esc", "back"],
-                    ]
+                ? [["type", memoryStep() === "min" ? "min MB" : "max MB"], ["Enter", memoryStep() === "min" ? "next" : "save"]]
+                : undefined
         }
       />
     </box>

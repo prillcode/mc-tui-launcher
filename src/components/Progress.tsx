@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from "solid-js"
+import { Show, createMemo } from "solid-js"
 import { busy, progress, statusMessage } from "../app/state"
 
 /**

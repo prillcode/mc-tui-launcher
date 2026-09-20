@@ -1,7 +1,6 @@
-import { onMount, onCleanup, Show, Switch, Match } from "solid-js"
-import { useKeyboard } from "@opentui/solid"
+import { onMount, Show, Switch, Match } from "solid-js"
+import { useBindings } from "@opentui/keymap/solid"
 import {
-  screen,
   deviceCode,
   loginStatus,
   loginError,
@@ -12,6 +11,7 @@ import {
   setStatusMessage,
   goBack,
 } from "../app/state"
+import { HINT } from "../app/keymap"
 import { launcherService } from "../services/launcher"
 import { KeyHints } from "../components/KeyHints"
 import { Centered } from "../components/Centered"
@@ -72,17 +72,18 @@ export function LoginScreen() {
     }
   })
 
-  useKeyboard((key) => {
-    if (screen() !== "login") return
-    if (key.name === "escape") {
-      if (loginStatus() === "success") {
-        setStatusMessage("")
-      } else {
-        setStatusMessage("Login cancelled")
-      }
-      goBack()
-    }
-  })
+  useBindings(() => ({
+    commands: [
+      {
+        name: "login.cancel",
+        run() {
+          setStatusMessage(loginStatus() === "success" ? "" : "Login cancelled")
+          goBack()
+        },
+      },
+    ],
+    bindings: [{ key: "escape", cmd: "login.cancel", desc: "back / cancel", hint: HINT.cancel }],
+  }))
 
   return (
     <box flexDirection="column" flexGrow={1}>
@@ -156,13 +157,7 @@ export function LoginScreen() {
         </box>
         </box>
       </Centered>
-      <KeyHints
-        hints={[
-          ["click", "open link"],
-          ["select", "copy text"],
-          ["Esc", "back / cancel"],
-        ]}
-      />
+      <KeyHints extra={[["click", "open link"], ["select", "copy text"]]} />
     </box>
   )
 }

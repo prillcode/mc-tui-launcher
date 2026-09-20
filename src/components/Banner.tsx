@@ -73,6 +73,7 @@ export function Banner() {
       backgroundColor="#181825"
       paddingX={2}
       flexDirection="column"
+      flexShrink={0}
     >
       <For each={quoteLines()}>
         {(line) => (

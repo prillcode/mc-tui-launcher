@@ -17,10 +17,13 @@
     "dev": "bun run src/cli.ts",
     "build:core": "cd ../mc-launcher-core && pnpm build",
     "typecheck": "tsc --noEmit",
+    "verify": "bun run scripts/verify-keys.tsx",
+    "shots": "bun run scripts/screenshot.tsx",
     "link": "bun link"
   },
   "dependencies": {
     "@opentui/core": "^0.5.11",
+    "@opentui/keymap": "^0.5.11",
     "@opentui/qrcode": "^0.5.11",
     "@opentui/solid": "^0.5.11",
     "@prillcode/mc-launcher-core": "file:../mc-launcher-core",

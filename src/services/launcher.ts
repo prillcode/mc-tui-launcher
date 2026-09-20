@@ -13,7 +13,6 @@ import {
   type VersionSummary,
   type StoredSession,
   type ModrinthProject,
-  type InstalledMod,
   type ServerPingResult,
   type LauncherSettings,
   type DownloadProgress,

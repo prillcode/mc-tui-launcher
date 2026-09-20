@@ -1,14 +1,15 @@
 import { For, Show, createSignal, createMemo, createEffect } from "solid-js"
-import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
+import { useTerminalDimensions } from "@opentui/solid"
+import { useBindings } from "@opentui/keymap/solid"
 import {
   navigate,
-  screen,
   profile,
   setStatusMessage,
   instances,
   busy,
   runningInstanceIds,
 } from "../app/state"
+import { HINT, when } from "../app/keymap"
 import { launcherService } from "../services/launcher"
 import { useInstancePings } from "../app/useInstancePings"
 import { KeyHints } from "../components/KeyHints"
@@ -104,39 +105,75 @@ export function HomeScreen() {
     setSection((s) => (s === "instances" ? "menu" : "instances"))
   }
 
-  useKeyboard((key) => {
-    if (screen() !== "home") return
+  // ── Key bindings (OpenTUI keymap) ───────────────────────────────
+  // Split by focused section so the hint bar only advertises the keys
+  // that are live in that section; the shared layer covers the rest.
+  const hasAnyInstance = () => instances().length > 0
 
-    if (key.name === "tab") {
-      toggleSection()
-      return
-    }
+  useBindings(() => ({
+    enabled: when(section, (current) => current === "instances" && hasAnyInstance()),
+    commands: [
+      { name: "home.instance.prev", run: () => setInstanceIndex((i) => Math.max(0, i - 1)) },
+      {
+        name: "home.instance.next",
+        run: () => setInstanceIndex((i) => Math.min(shownInstances().length - 1, i + 1)),
+      },
+      { name: "home.launch", run: () => void launchSelected() },
+      { name: "home.focusMenu", run: () => setSection("menu") },
+    ],
+    bindings: [
+      // Bindings that share a `hint` order and `desc` render as one hint.
+      { key: "left", cmd: "home.instance.prev", desc: "instance", hint: HINT.primary },
+      { key: "right", cmd: "home.instance.next", desc: "instance", hint: HINT.primary },
+      { key: "return", cmd: "home.launch", desc: "launch", hint: HINT.primary },
+      { key: "l", cmd: "home.launch", desc: "launch", hint: HINT.primary },
+      { key: "down", cmd: "home.focusMenu", desc: "menu", hint: HINT.secondary },
+      { key: "j", cmd: "home.focusMenu" },
+    ],
+  }))
 
-    if (section() === "instances" && hasInstances()) {
-      if (key.name === "left") {
-        setInstanceIndex((i) => Math.max(0, i - 1))
-      } else if (key.name === "right") {
-        setInstanceIndex((i) => Math.min(shownInstances().length - 1, i + 1))
-      } else if (key.name === "down" || key.name === "j") {
-        setSection("menu")
-      } else if (key.name === "return" || key.name === "enter" || key.name === "l") {
-        void launchSelected()
-      }
-      return
-    }
+  useBindings(() => ({
+    enabled: when(section, (current) => current === "menu"),
+    commands: [
+      {
+        name: "home.menu.prev",
+        run() {
+          if (menuIndex() === 0 && hasInstances()) setSection("instances")
+          else setMenuIndex((i) => Math.max(0, i - 1))
+        },
+      },
+      { name: "home.menu.next", run: () => setMenuIndex((i) => Math.min(menu.length - 1, i + 1)) },
+      { name: "home.menu.activate", run: () => activateMenu() },
+      { name: "home.launchFromMenu", run: () => void launchSelected() },
+    ],
+    bindings: [
+      { key: "up", cmd: "home.menu.prev", desc: "menu", hint: HINT.primary },
+      { key: "k", cmd: "home.menu.prev" },
+      { key: "down", cmd: "home.menu.next", desc: "menu", hint: HINT.primary },
+      { key: "j", cmd: "home.menu.next" },
+      { key: "return", cmd: "home.menu.activate", desc: "select", hint: HINT.secondary },
+      { key: "l", cmd: "home.launchFromMenu", desc: "launch", hint: HINT.secondary },
+    ],
+  }))
 
-    // Menu section
-    if (key.name === "up" || key.name === "k") {
-      if (menuIndex() === 0 && hasInstances()) setSection("instances")
-      else setMenuIndex((i) => Math.max(0, i - 1))
-    } else if (key.name === "down" || key.name === "j") {
-      setMenuIndex((i) => Math.min(menu.length - 1, i + 1))
-    } else if (key.name === "return" || key.name === "enter") {
-      activateMenu()
-    } else if (key.name === "l") {
-      void launchSelected()
-    }
-  })
+  // Section-independent home keys. They stay out of the hint bar: the menu
+  // already lists these destinations with their own descriptions.
+  useBindings(() => ({
+    commands: [
+      { name: "home.toggleSection", run: () => toggleSection() },
+      { name: "nav.instances", run: () => navigate("instances") },
+      { name: "nav.login", run: () => navigate("login") },
+      { name: "nav.mods", run: () => navigate("mods") },
+      { name: "nav.settings", run: () => navigate("settings") },
+    ],
+    bindings: [
+      { key: "tab", cmd: "home.toggleSection", desc: "switch section", hint: HINT.edit },
+      { key: "i", cmd: "nav.instances" },
+      { key: "a", cmd: "nav.login" },
+      { key: "m", cmd: "nav.mods" },
+      { key: "s", cmd: "nav.settings" },
+    ],
+  }))
 
   return (
     <box flexDirection="column" flexGrow={1}>
@@ -222,25 +259,7 @@ export function HomeScreen() {
           </box>
         </box>
       </Centered>
-      <KeyHints
-        hints={
-          section() === "instances"
-            ? [
-                ["←/→", "instance"],
-                ["Enter/l", "launch"],
-                ["↓", "menu"],
-                ["i", "manage"],
-                ["q q", "quit"],
-              ]
-            : [
-                ["↑/↓", "menu"],
-                ["Enter", "select"],
-                ["l", "launch"],
-                ["Tab", "instances"],
-                ["q q", "quit"],
-              ]
-        }
-      />
+      <KeyHints />
     </box>
   )
 }

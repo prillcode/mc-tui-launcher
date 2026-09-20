@@ -1,6 +1,8 @@
 import { createCliRenderer, type ClipboardService } from "@opentui/core"
 import { render } from "@opentui/solid"
+import { KeymapProvider } from "@opentui/keymap/solid"
 import { createAppClipboard } from "./app/clipboard"
+import { createAppKeymap } from "./app/keymap"
 import { App } from "./app/App"
 
 /**
@@ -16,6 +18,10 @@ import { App } from "./app/App"
  */
 const renderer = await createCliRenderer({ exitOnCtrlC: true })
 
+// One keymap for the whole app; every screen registers its layers into it
+// and the hint bar reads its live state (see app/keymap.ts).
+const keymap = createAppKeymap(renderer)
+
 let clipboard: ClipboardService | undefined
 try {
   clipboard = createAppClipboard(renderer)
@@ -25,8 +31,14 @@ try {
   console.error(`Host clipboard unavailable: ${err instanceof Error ? err.message : String(err)}`)
 }
 try {
-  clipboard = createAppClipboard(renderer)
-  await render(() => <App clipboard={clipboard} />, renderer)
+  await render(
+    () => (
+      <KeymapProvider keymap={keymap}>
+        <App clipboard={clipboard} />
+      </KeymapProvider>
+    ),
+    renderer,
+  )
 
   // Resolves when the renderer is destroyed (also emitted for
   // exitOnCtrlC and the built-in signal handlers).

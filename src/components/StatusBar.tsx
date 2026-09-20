@@ -12,7 +12,7 @@ export function StatusBar() {
   })
 
   return (
-    <box height={1} flexDirection="row" backgroundColor="#181825">
+    <box height={1} flexDirection="row" backgroundColor="#181825" flexShrink={0}>
       <Show when={busy()}>
         <text fg="#f9e2af">⏳ </text>
       </Show>

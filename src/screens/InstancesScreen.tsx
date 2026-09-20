@@ -1,7 +1,8 @@
 import { onMount, For, Show, createSignal, createMemo, createEffect } from "solid-js"
-import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
+import { useTerminalDimensions } from "@opentui/solid"
+import { useBindings } from "@opentui/keymap/solid"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import {
-  screen,
   instances,
   versions,
   goBack,
@@ -11,6 +12,7 @@ import {
   busy,
   runningInstanceIds,
 } from "../app/state"
+import { HINT, allOf, when } from "../app/keymap"
 import { useInstancePings } from "../app/useInstancePings"
 import { launcherService } from "../services/launcher"
 import { InstanceCard, CARD_HEIGHT } from "../components/InstanceCard"
@@ -135,69 +137,111 @@ export function InstancesScreen() {
     }
   }
 
-  useKeyboard((key) => {
-    if (screen() !== "instances") return
+  // ── Key bindings (OpenTUI keymap) ───────────────────────────────
+  // One layer per mode. The grid layer is switched off while the create
+  // flow owns the screen, so the arrow keys keep one meaning per mode and
+  // the hint bar follows along.
+  useBindings(() => ({
+    enabled: when(creating, (isCreating) => !isCreating),
+    commands: [
+      { name: "instances.back", run: () => goBack() },
+      { name: "instances.launch", run: () => void launchSelected() },
+      { name: "instances.detail", run: () => openDetail() },
+      { name: "instances.refresh", run: () => void refresh() },
+      { name: "instances.create", run: () => void startCreate() },
+      { name: "instances.prevRow", run: () => moveBy(-columns()) },
+      { name: "instances.nextRow", run: () => moveBy(columns()) },
+      { name: "instances.prev", run: () => moveBy(-1) },
+      { name: "instances.next", run: () => moveBy(1) },
+      { name: "instances.prevPage", run: () => moveBy(-pageSize()) },
+      { name: "instances.nextPage", run: () => moveBy(pageSize()) },
+      { name: "instances.first", run: () => setSelected(0) },
+      { name: "instances.last", run: () => setSelected(Math.max(0, instances().length - 1)) },
+    ],
+    bindings: [
+      // Bindings sharing a `hint` order and `desc` render as one grouped hint.
+      { key: "left", cmd: "instances.prev", desc: "navigate", hint: HINT.primary },
+      { key: "up", cmd: "instances.prevRow", desc: "navigate", hint: HINT.primary },
+      { key: "down", cmd: "instances.nextRow", desc: "navigate", hint: HINT.primary },
+      { key: "right", cmd: "instances.next", desc: "navigate", hint: HINT.primary },
+      { key: "k", cmd: "instances.prevRow" },
+      { key: "j", cmd: "instances.nextRow" },
+      { key: "l", cmd: "instances.launch", desc: "launch", hint: HINT.secondary },
+      { key: "return", cmd: "instances.detail", desc: "details", hint: HINT.secondary },
+      { key: "c", cmd: "instances.create", desc: "new", hint: HINT.secondary },
+      { key: "[", cmd: "instances.prevPage", desc: "page", hint: HINT.edit },
+      { key: "]", cmd: "instances.nextPage", desc: "page", hint: HINT.edit },
+      { key: "pageup", cmd: "instances.prevPage" },
+      { key: "pagedown", cmd: "instances.nextPage" },
+      { key: "home", cmd: "instances.first" },
+      { key: "end", cmd: "instances.last" },
+      { key: "r", cmd: "instances.refresh", desc: "re-ping", hint: HINT.edit },
+      { key: "escape", cmd: "instances.back", desc: "back", hint: HINT.cancel },
+    ],
+  }))
 
-    if (key.name === "escape") {
-      if (pickingLoader()) {
-        setPickingLoader(false)
-      } else if (creating()) {
-        setCreating(false)
-      } else {
-        goBack()
-      }
-      return
-    }
+  // Version picker: the whole manifest scrolls, not only the newest 20.
+  useBindings(() => ({
+    enabled: allOf(
+      when(creating, (isCreating) => isCreating),
+      when(pickingLoader, (picking) => !picking),
+    ),
+    commands: [
+      { name: "instances.create.cancel", run: () => setCreating(false) },
+      { name: "instances.create.prev", run: () => setCreateSelected((s) => Math.max(0, s - 1)) },
+      {
+        name: "instances.create.next",
+        run: () => setCreateSelected((s) => Math.min(versions().length - 1, s + 1)),
+      },
+      {
+        name: "instances.create.accept",
+        run() {
+          setLoaderSelected(0)
+          setPickingLoader(true)
+        },
+      },
+    ],
+    bindings: [
+      { key: "up", cmd: "instances.create.prev", desc: "version", hint: HINT.primary },
+      { key: "down", cmd: "instances.create.next", desc: "version", hint: HINT.primary },
+      { key: "k", cmd: "instances.create.prev" },
+      { key: "j", cmd: "instances.create.next" },
+      { key: "return", cmd: "instances.create.accept", desc: "next: loader", hint: HINT.secondary },
+      { key: "escape", cmd: "instances.create.cancel", desc: "cancel", hint: HINT.cancel },
+    ],
+  }))
 
-    if (creating() && pickingLoader()) {
-      if (key.name === "up" || key.name === "k") {
-        setLoaderSelected((s) => Math.max(0, s - 1))
-      } else if (key.name === "down" || key.name === "j") {
-        setLoaderSelected((s) => Math.min(LOADER_CHOICES.length - 1, s + 1))
-      } else if (key.name === "return" || key.name === "enter") {
-        void confirmCreate()
-      }
-      return
-    }
+  useBindings(() => ({
+    enabled: allOf(
+      when(creating, (isCreating) => isCreating),
+      when(pickingLoader, (picking) => picking),
+    ),
+    commands: [
+      { name: "instances.loader.back", run: () => setPickingLoader(false) },
+      { name: "instances.loader.prev", run: () => setLoaderSelected((s) => Math.max(0, s - 1)) },
+      {
+        name: "instances.loader.next",
+        run: () => setLoaderSelected((s) => Math.min(LOADER_CHOICES.length - 1, s + 1)),
+      },
+      { name: "instances.loader.accept", run: () => void confirmCreate() },
+    ],
+    bindings: [
+      { key: "up", cmd: "instances.loader.prev", desc: "loader", hint: HINT.primary },
+      { key: "down", cmd: "instances.loader.next", desc: "loader", hint: HINT.primary },
+      { key: "k", cmd: "instances.loader.prev" },
+      { key: "j", cmd: "instances.loader.next" },
+      { key: "return", cmd: "instances.loader.accept", desc: "create", hint: HINT.secondary },
+      { key: "escape", cmd: "instances.loader.back", desc: "back to versions", hint: HINT.cancel },
+    ],
+  }))
 
-    if (creating()) {
-      if (key.name === "up" || key.name === "k") {
-        setCreateSelected((s) => Math.max(0, s - 1))
-      } else if (key.name === "down" || key.name === "j") {
-        setCreateSelected((s) => Math.min(versions().length - 1, s + 1))
-      } else if (key.name === "return" || key.name === "enter") {
-        setLoaderSelected(0)
-        setPickingLoader(true)
-      }
-      return
-    }
-
-    // ── Grid navigation ───────────────────────────────────────────
-    if (key.name === "up" || key.name === "k") {
-      moveBy(-columns())
-    } else if (key.name === "down" || key.name === "j") {
-      moveBy(columns())
-    } else if (key.name === "left") {
-      moveBy(-1)
-    } else if (key.name === "right") {
-      moveBy(1)
-    } else if (key.name === "[" || key.name === "pageup") {
-      moveBy(-pageSize())
-    } else if (key.name === "]" || key.name === "pagedown") {
-      moveBy(pageSize())
-    } else if (key.name === "home") {
-      setSelected(0)
-    } else if (key.name === "end") {
-      setSelected(Math.max(0, instances().length - 1))
-    } else if (key.name === "return" || key.name === "enter") {
-      openDetail()
-    } else if (key.name === "l" && !key.ctrl) {
-      void launchSelected()
-    } else if (key.name === "r" && !busy()) {
-      void refresh()
-    } else if (key.name === "c" && !busy()) {
-      void startCreate()
-    }
+  // Keep the version cursor in view as it moves through a long manifest.
+  // The ref is a signal so the effect also runs when the list first appears.
+  const [versionListRef, setVersionListRef] = createSignal<ScrollBoxRenderable>()
+  createEffect(() => {
+    const list = versionListRef()
+    if (!list) return
+    list.scrollChildIntoView(`version-row-${createSelected()}`)
   })
 
   return (
@@ -238,27 +282,34 @@ export function InstancesScreen() {
                 </box>
               }
             >
-              <box flexDirection="column">
-                <text fg="#cdd6f4" attributes={2}>
+              <box flexDirection="column" flexGrow={1} width="100%">
+                <text fg="#cdd6f4" attributes={2} flexShrink={0}>
                   New instance — pick a Minecraft version
                 </text>
-                <box height={1} />
-                <For each={versions().slice(0, 20)}>
-                  {(version, i) => (
-                    <box flexDirection="row" height={1}>
-                      <text
-                        fg={createSelected() === i() ? "#89b4fa" : "#cdd6f4"}
-                        attributes={createSelected() === i() ? 1 : 0}
-                      >
-                        {createSelected() === i() ? "▸ " : "  "}
-                        {version.id}
-                      </text>
-                      <text fg="#585b70"> {version.type}</text>
-                    </box>
-                  )}
-                </For>
-                <box height={1} />
-                <text fg="#6c7086">↑/↓ + Enter to continue (showing 20 most recent releases)</text>
+                <box height={1} flexShrink={0} />
+                <scrollbox
+                  ref={setVersionListRef}
+                  flexGrow={1}
+                  scrollbarOptions={{ showArrows: false }}
+                >
+                  <For each={versions()}>
+                    {(version, i) => (
+                      <box id={`version-row-${i()}`} flexDirection="row" height={1}>
+                        <text
+                          fg={createSelected() === i() ? "#89b4fa" : "#cdd6f4"}
+                          attributes={createSelected() === i() ? 1 : 0}
+                        >
+                          {createSelected() === i() ? "▸ " : "  "}
+                          {version.id}
+                        </text>
+                        <text fg="#585b70"> {version.type}</text>
+                      </box>
+                    )}
+                  </For>
+                </scrollbox>
+                <text fg="#6c7086" flexShrink={0}>
+                  Enter picks a mod loader next · Esc cancels
+                </text>
               </box>
             </Show>
             </box>
@@ -314,31 +365,7 @@ export function InstancesScreen() {
           <Progress />
         </Show>
       </box>
-      <KeyHints
-        hints={
-          pickingLoader()
-            ? [
-                ["↑/↓", "loader"],
-                ["Enter", "create"],
-                ["Esc", "back to versions"],
-              ]
-            : creating()
-              ? [
-                  ["↑/↓", "version"],
-                  ["Enter", "next: loader"],
-                  ["Esc", "cancel"],
-                ]
-              : [
-                  ["←↑↓→", "navigate"],
-                  ["l", "launch"],
-                  ["Enter", "details"],
-                  ["c", "new"],
-                  ["[ ]", "page"],
-                  ["r", "re-ping"],
-                  ["Esc", "back"],
-                ]
-        }
-      />
+      <KeyHints />
     </box>
   )
 }

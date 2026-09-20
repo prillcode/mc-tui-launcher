@@ -1,7 +1,9 @@
-import { Switch, Match, Show, createSignal, onCleanup, type JSX } from "solid-js"
-import { useRenderer, useKeyboard } from "@opentui/solid"
+import { Switch, Match, Show, createEffect, createMemo, onCleanup, type JSX } from "solid-js"
+import { useRenderer } from "@opentui/solid"
 import type { ClipboardService } from "@opentui/core"
-import { screen, navigate, textInputActive, setStatusMessage } from "./state"
+import { useBindings, useKeymap, useKeymapSelector } from "@opentui/keymap/solid"
+import { screen, navigate, setStatusMessage } from "./state"
+import { HINT, notEditing } from "./keymap"
 import { useCopySelectionOnRelease } from "./clipboard"
 import { Banner } from "../components/Banner"
 import { StatusBar } from "../components/StatusBar"
@@ -15,72 +17,65 @@ import { SettingsScreen } from "../screens/SettingsScreen"
 import { LogsScreen } from "../screens/LogsScreen"
 import { HelpScreen } from "../screens/HelpScreen"
 
+/** A pending `q` is dropped after this long so a stray press can't linger. */
+const QUIT_CONFIRM_MS = 4000
+
 /**
  * Root component: header + active screen + status bar.
  *
- * Handles only global keys; screens subscribe to their own keys and
- * clean up automatically when they unmount (Solid owner cleanup).
+ * Owns only the ambient bindings that apply everywhere — help (`?`) and
+ * quit (`q q`). Each screen registers the rest of its keys with
+ * `useBindings()` while it is mounted, so layers appear and disappear with
+ * the `<Switch>` below.
  */
 export function App(props: { clipboard?: ClipboardService }): JSX.Element {
   const renderer = useRenderer()
+  const keymap = useKeymap()
   if (props.clipboard) useCopySelectionOnRelease(props.clipboard)
 
-  // Quit needs a second press so a stray 'q' can't kill the session.
-  const QUIT_CONFIRM_MS = 4000
-  const [confirmQuit, setConfirmQuit] = createSignal(false)
-  let quitTimer: ReturnType<typeof setTimeout> | undefined
+  // Quit is a two-stroke sequence rather than a timer + flag: `q` arms the
+  // sequence, a second `q` runs app.quit, and any other key clears it.
+  const pending = useKeymapSelector((keymap) => keymap.getPendingSequence())
+  const quitPending = createMemo(() => pending().length > 0)
 
-  function armQuit() {
-    clearTimeout(quitTimer)
-    setConfirmQuit(true)
+  createEffect(() => {
+    if (!quitPending()) return
     setStatusMessage("Press 'q' again to quit — any other key cancels")
-    quitTimer = setTimeout(() => {
-      setConfirmQuit(false)
+    const timer = setTimeout(() => {
+      keymap.clearPendingSequence()
       setStatusMessage("Quit cancelled")
     }, QUIT_CONFIRM_MS)
-  }
-
-  function cancelQuit() {
-    clearTimeout(quitTimer)
-    if (confirmQuit()) {
-      setConfirmQuit(false)
-      setStatusMessage("Quit cancelled")
-    }
-  }
-
-  onCleanup(() => clearTimeout(quitTimer))
-
-  useKeyboard((key) => {
-    // Screens with editor inputs (search, server host) capture keys —
-    // don't quit or navigate on characters the user is typing.
-    if (textInputActive()) return
-    if (key.name === "q") {
-      if (confirmQuit()) {
-        clearTimeout(quitTimer)
-        renderer.destroy()
-      } else {
-        armQuit()
-      }
-      return
-    }
-    // Any other key dismisses a pending quit without acting on it.
-    if (confirmQuit()) {
-      cancelQuit()
-      return
-    }
-    if (key.sequence === "?" && screen() !== "help") {
-      navigate("help")
-      return
-    }
-    // Global jumps only from the home screen so lists keep their keys.
-    // ('l' is not a global shortcut — it launches the selected instance on
-    // the home/instance screens; Logs is in the home menu.)
-    if (screen() !== "home") return
-    if (key.name === "i") navigate("instances")
-    else if (key.name === "a") navigate("login")
-    else if (key.name === "m") navigate("mods")
-    else if (key.name === "s") navigate("settings")
+    onCleanup(() => clearTimeout(timer))
   })
+
+  useBindings(() => ({
+    // Never steal keystrokes from an open editor input.
+    enabled: notEditing(),
+    commands: [
+      {
+        name: "app.help",
+        desc: "keyboard reference",
+        run() {
+          // `?` is a no-op on the help screen itself (Esc leaves it).
+          if (screen() !== "help") navigate("help")
+        },
+      },
+      {
+        name: "app.quit",
+        desc: "quit bhmc",
+        run() {
+          renderer.destroy()
+        },
+      },
+    ],
+    bindings: [
+      { key: "?", cmd: "app.help", desc: "help", hint: HINT.ambient },
+      // Metadata-only prefix binding: it documents the first stroke of the
+      // quit sequence so the hint bar can show it before it is pending.
+      { key: "q", desc: "quit", hint: HINT.ambient },
+      { key: "qq", cmd: "app.quit", desc: "quit", hint: HINT.ambient },
+    ],
+  }))
 
   return (
     <box flexDirection="column" flexGrow={1}>
@@ -114,7 +109,7 @@ export function App(props: { clipboard?: ClipboardService }): JSX.Element {
         </Switch>
       </box>
       <StatusBar />
-      <Show when={confirmQuit()}>
+      <Show when={quitPending()}>
         <Dialog title="Quit bhmc?">
           <text fg="#cdd6f4">Press 'q' again to quit.</text>
           <text fg="#6c7086">Any other key cancels.</text>

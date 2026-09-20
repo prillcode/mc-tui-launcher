@@ -1,6 +1,7 @@
 import { onMount, For, Show, createSignal } from "solid-js"
-import { useKeyboard } from "@opentui/solid"
-import { screen, goBack, setStatusMessage, setTextInputActive } from "../app/state"
+import { useBindings } from "@opentui/keymap/solid"
+import { goBack, setStatusMessage, setTextInputActive } from "../app/state"
+import { HINT, when } from "../app/keymap"
 import { launcherService } from "../services/launcher"
 import { appConfig } from "../services/config"
 import { KeyHints } from "../components/KeyHints"
@@ -148,26 +149,33 @@ export function SettingsScreen() {
     openEditor(row)
   }
 
-  useKeyboard((key) => {
-    if (screen() !== "settings") return
+  // ── Key bindings (OpenTUI keymap) ────────────────────────────────
+  // The list layer is off while a row editor is open so typed values
+  // reach the focused <input> instead of the screen's single-letter keys.
+  useBindings(() => ({
+    enabled: when(editing, (open) => !open),
+    commands: [
+      { name: "settings.back", run: () => goBack() },
+      { name: "settings.prev", run: () => setSelected((s) => Math.max(0, s - 1)) },
+      { name: "settings.next", run: () => setSelected((s) => Math.min(rows().length - 1, s + 1)) },
+      { name: "settings.activate", run: () => activate() },
+    ],
+    bindings: [
+      { key: "up", cmd: "settings.prev", desc: "navigate", hint: HINT.primary },
+      { key: "down", cmd: "settings.next", desc: "navigate", hint: HINT.primary },
+      { key: "k", cmd: "settings.prev" },
+      { key: "j", cmd: "settings.next" },
+      { key: "return", cmd: "settings.activate", desc: "edit", hint: HINT.secondary },
+      { key: "e", cmd: "settings.activate", desc: "edit", hint: HINT.secondary },
+      { key: "escape", cmd: "settings.back", desc: "back", hint: HINT.cancel },
+    ],
+  }))
 
-    // While an editor is open only Esc reaches the screen handler (the
-    // input itself handles Enter/submit).
-    if (editing()) {
-      if (key.name === "escape") closeEditor()
-      return
-    }
-
-    if (key.name === "escape") {
-      goBack()
-    } else if (key.name === "up" || key.name === "k") {
-      setSelected((s) => Math.max(0, s - 1))
-    } else if (key.name === "down" || key.name === "j") {
-      setSelected((s) => Math.min(rows().length - 1, s + 1))
-    } else if (key.name === "return" || key.name === "enter" || key.name === "e") {
-      activate()
-    }
-  })
+  useBindings(() => ({
+    enabled: when(editing, (open) => open !== null),
+    commands: [{ name: "settings.cancelEdit", run: () => closeEditor() }],
+    bindings: [{ key: "escape", cmd: "settings.cancelEdit", desc: "cancel", hint: HINT.cancel }],
+  }))
 
   return (
     <box flexDirection="column" flexGrow={1}>
@@ -218,21 +226,7 @@ export function SettingsScreen() {
         </text>
         <text fg="#6c7086">  Data root:      {appConfig.dataRoot}</text>
       </Centered>
-      <KeyHints
-        hints={
-          editing()
-            ? [
-                ["type", "value"],
-                ["Enter", "save"],
-                ["Esc", "cancel"],
-              ]
-            : [
-                ["↑/↓", "navigate"],
-                ["Enter/e", "edit"],
-                ["Esc", "back"],
-              ]
-        }
-      />
+      <KeyHints extra={editing() ? [["type", "value"], ["Enter", "save"]] : undefined} />
     </box>
   )
 }
