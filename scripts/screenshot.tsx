@@ -6,6 +6,10 @@
  *   bun run scripts/screenshot.tsx [screen ...]
  */
 import "@opentui/solid/preload"
+import * as os from "node:os"
+import * as fs from "node:fs"
+import * as path from "node:path"
+import { makeLevelDat } from "./lib/level-dat"
 
 const { createTestRenderer } = await import("@opentui/core/testing")
 const { render } = await import("@opentui/solid")
@@ -99,6 +103,27 @@ if (requested.length === 0 || requested.includes("worlds") || requested.includes
   await settle(2500)
   await shot("WORLDS after backup (b)")
   await shot("WORLDS backups (v)", [["v"]])
+}
+
+if (requested.length === 0 || requested.includes("servers") || requested.includes("servers-backups")) {
+  // A local record, so the screenshots never need Docker.
+  const serverDir = fs.mkdtempSync(path.join(os.tmpdir(), "bhmc-shots-server-"))
+  const serverWorld = path.join(serverDir, "world")
+  fs.mkdirSync(path.join(serverWorld, "data"), { recursive: true })
+  fs.writeFileSync(path.join(serverWorld, "level.dat"), makeLevelDat("Golf Design World", "26.2", Date.now()))
+  fs.writeFileSync(path.join(serverWorld, "data/state.txt"), "shots")
+  const record = await launcherService.addServer({
+    name: "BirdieBiome - Golf (local)",
+    source: { kind: "local", dataDir: serverDir, levelName: "world" },
+  })
+  state.navigate("servers")
+  await shot("SERVERS")
+  await setup.mockInput.pressKey("b")
+  await settle(2500)
+  await shot("SERVERS after backup (b)")
+  await shot("SERVERS backups (v)", [["v"]])
+  await launcherService.removeServer(record.id, { deleteBackups: true })
+  fs.rmSync(serverDir, { recursive: true, force: true })
 }
 
 if (requested.length === 0 || requested.includes("settings")) {

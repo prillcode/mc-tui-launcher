@@ -10,6 +10,7 @@ import "@opentui/solid/preload"
 import * as os from "node:os"
 import * as fs from "node:fs"
 import * as path from "node:path"
+import { makeLevelDat } from "./lib/level-dat"
 
 if (!process.env.MC_LAUNCHER_DATA_DIR) {
   process.env.MC_LAUNCHER_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "bhmc-verify-"))
@@ -178,84 +179,6 @@ state.navigate("home")
 await settle(400)
 
 // ── Worlds: list, backup, restore, running guard, import input ─────────
-// A tiny raw (non-gzipped) NBT written inline: readLevelDat accepts raw
-// NBT, so no fixture files or zlib are needed.
-type NbtTag =
-  | ["byte", number]
-  | ["int", number]
-  | ["long", number]
-  | ["string", string]
-  | ["compound", Array<[string, NbtTag]>]
-
-const NBT_TYPE: Record<NbtTag[0], number> = { byte: 1, int: 3, long: 4, string: 8, compound: 10 }
-
-function nbtPayload(out: Buffer[], tag: NbtTag): void {
-  switch (tag[0]) {
-    case "byte":
-      out.push(Buffer.from([tag[1] & 0xff]))
-      break
-    case "int": {
-      const b = Buffer.alloc(4)
-      b.writeInt32BE(tag[1])
-      out.push(b)
-      break
-    }
-    case "long": {
-      const b = Buffer.alloc(8)
-      b.writeBigInt64BE(BigInt(tag[1]))
-      out.push(b)
-      break
-    }
-    case "string": {
-      const s = Buffer.from(tag[1], "utf8")
-      const l = Buffer.alloc(2)
-      l.writeUInt16BE(s.length)
-      out.push(l, s)
-      break
-    }
-    case "compound": {
-      for (const [name, child] of tag[1]) {
-        out.push(Buffer.from([NBT_TYPE[child[0]]]))
-        const n = Buffer.from(name, "utf8")
-        const l = Buffer.alloc(2)
-        l.writeUInt16BE(n.length)
-        out.push(l, n)
-        nbtPayload(out, child)
-      }
-      out.push(Buffer.from([0]))
-      break
-    }
-  }
-}
-
-function makeLevelDat(name: string, version: string, lastPlayed: number): Buffer {
-  const fields: Array<[string, NbtTag]> = [
-    ["LevelName", ["string", name]],
-    [
-      "Version",
-      [
-        "compound",
-        [
-          ["Name", ["string", version]],
-          ["Id", ["int", 1]],
-          ["Snapshot", ["byte", 0]],
-          ["Series", ["string", "main"]],
-        ],
-      ],
-    ],
-    ["DataVersion", ["int", 1]],
-    ["GameType", ["int", 0]],
-    [
-      "difficulty_settings",
-      ["compound", [["difficulty", ["string", "easy"]], ["hardcore", ["byte", 0]], ["locked", ["byte", 0]]]],
-    ],
-    ["LastPlayed", ["long", lastPlayed]],
-    ["allowCommands", ["byte", 0]],
-  ]
-  const out: Buffer[] = [Buffer.from([10]), Buffer.from([0, 0])]
-  nbtPayload(out, ["compound", [["Data", ["compound", fields]]]])
-  return Buffer.concat(out)
-}
 
 const scratch = await launcherService.createInstance("Worlds Verify", "1.21.4", "vanilla")
 const scratchSaves = path.join(scratch.gameDirectory, "saves")
@@ -355,6 +278,108 @@ checkSelectionVisible("worlds list (scrolled)")
 // Clean up the scratch instance and its backups.
 await launcherService.deleteInstance(scratch.id)
 fs.rmSync(backupsDir, { recursive: true, force: true })
+
+// ── Servers: local record, backup, restore, form typing ────────────────
+// A `local` source means this whole section works without Docker.
+const serverDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "bhmc-verify-server-"))
+const serverWorld = path.join(serverDataDir, "world")
+fs.mkdirSync(path.join(serverWorld, "data"), { recursive: true })
+fs.writeFileSync(
+  path.join(serverWorld, "level.dat"),
+  makeLevelDat("Verify Server World", "1.21.4", Date.now()),
+)
+fs.writeFileSync(path.join(serverWorld, "data/state.txt"), "server-original")
+const serverRecord = await launcherService.addServer({
+  name: "Verify Local Server",
+  source: { kind: "local", dataDir: serverDataDir, levelName: "world" },
+})
+const serverBackupsDir = launcherService.serverBackupsDir(serverRecord.id)
+const serverZipCount = () =>
+  fs.existsSync(serverBackupsDir)
+    ? fs.readdirSync(serverBackupsDir).filter((f) => f.endsWith(".zip")).length
+    : 0
+
+state.navigate("servers")
+await settle(1000)
+checkScrollLayout("servers list")
+check(
+  "servers list shows the record name",
+  setup.captureCharFrame().includes("Verify Local Server"),
+  true,
+)
+check(
+  "servers list shows the world name",
+  setup.captureCharFrame().includes("Verify Server World"),
+  true,
+)
+
+// Add form: typing must reach the input (a/d/e/x/w are bound elsewhere).
+await setup.mockInput.pressKey("a")
+await settle(250)
+check("add form opens", setup.captureCharFrame().includes("Add a dedicated server"), true)
+// Enter must be pressed with pressEnter(): the named-key helper is what the
+// real terminal sends, and the form's Enter binding matches it.
+await setup.mockInput.pressEnter()
+await settle(200)
+await setup.mockInput.typeText("typed-server")
+await settle(200)
+check(
+  "server form input receives typed text ('a'/'d'/'e' are bound)",
+  (findInput(setup.renderer.root)?.value ?? "").endsWith("typed-server"),
+  true,
+)
+check("typing into the server form arms no action", keymap.getPendingSequence().length, 0)
+await setup.mockInput.pressEscape()
+await settle(200)
+await setup.mockInput.pressEscape()
+await settle(400)
+check(
+  "Esc leaves the add form back on the server list",
+  setup.captureCharFrame().includes("Verify Local Server"),
+  true,
+)
+
+// A real local backup.
+await setup.mockInput.pressKey("b")
+await settle(4000)
+check("'b' creates a server backup zip", serverZipCount() > 0, true)
+
+// Backups view + restore round-trip.
+fs.writeFileSync(path.join(serverWorld, "data/state.txt"), "server-changed")
+fs.writeFileSync(path.join(serverWorld, "data/extra.txt"), "should-disappear")
+await setup.mockInput.pressKey("v")
+await settle(600)
+checkScrollLayout("servers backups list")
+await setup.mockInput.pressEnter()
+await settle(300)
+check(
+  "server restore requires a second Enter",
+  state.statusMessage().includes("Press Enter again"),
+  true,
+)
+await setup.mockInput.pressEnter()
+await settle(5000)
+check(
+  "server restore brings the original content back",
+  fs.readFileSync(path.join(serverWorld, "data/state.txt"), "utf8"),
+  "server-original",
+)
+check(
+  "server restore drops files created after the backup",
+  fs.existsSync(path.join(serverWorld, "data/extra.txt")),
+  false,
+)
+check(
+  "server restore keeps a pre-restore snapshot",
+  fs.readdirSync(serverBackupsDir).some((f) => f.includes("pre-restore")),
+  true,
+)
+await setup.mockInput.pressEscape()
+await settle(300)
+
+// Clean up the record, its backups and the scratch world.
+await launcherService.removeServer(serverRecord.id, { deleteBackups: true })
+fs.rmSync(serverDataDir, { recursive: true, force: true })
 
 state.navigate("home")
 await settle(400)

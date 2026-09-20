@@ -41,6 +41,9 @@ World backups and exports live inside that root:
 <data root>/backups/index.json                 # backup index (per instance)
 <data root>/backups/<instanceId>/<world>-<YYYYMMDD-HHmmss>.zip
 <data root>/exports/<world>-<YYYYMMDD-HHmmss>.zip
+<data root>/servers.json                        # explicit dedicated-server records
+<data root>/backups/servers/index.json          # server-world backup index
+<data root>/backups/servers/<serverId>/<level>-<YYYYMMDD-HHmmss>.zip
 ```
 
 Backups are plain `.zip` files whose archive root is the world folder
@@ -51,30 +54,30 @@ newest. Restoring a backup first writes a `*-pre-restore-*.zip` safety
 snapshot and keeps the replaced world as `<folder>.replaced-<timestamp>`.
 Every world-mutating action is refused while that instance is running.
 
-### Backing up a Docker / local server world (manual stopgap)
+### Backing up a local / Docker dedicated-server world
 
-Worlds that live on a dedicated server are **not** in any instance's `saves/`,
-so a server profile (e.g. one auto-connecting to `localhost`) legitimately shows
-0 worlds. Until the dedicated server-world backup work lands, the existing
-pieces cover it manually:
+A dedicated server's world is **not** in any instance's `saves/`, so a server
+profile legitimately shows 0 worlds. Use the Servers screen (`d` from Home):
+add an explicit record for each server (a Docker container, or a plain host
+directory) with its data directory and level name. Nothing is guessed — this
+machine has both a live Docker-volume world and a stale `run/` leftover.
 
-```bash
-# inside the server container (itzg image), flush the world first
-docker exec minecraft-golf-dev rcon-cli save-all flush
+- **Live backup (default, Docker):** the launcher runs `rcon-cli save-off`,
+  `save-all flush`, copies the world out with `docker cp`, zips it, then always
+  runs `save-on` (even if the copy fails). If RCON is unavailable it warns and
+  copies anyway. A *Require stopped* toggle forces the clean path instead.
+- **Restore:** always requires the container stopped. If it was running, the
+  launcher stops it, writes a `*-pre-restore-*` safety snapshot, extracts the
+  chosen backup, swaps the world inside the volume with a throwaway helper
+  container (`docker run --rm --volumes-from <container> …` — the volume is
+  root-owned, and `docker cp` would *merge* rather than replace), then starts
+  the container again. The old world is kept as `<level>.replaced-<timestamp>`.
+- **Local** sources use an ordinary temp-dir + rename, exactly like client
+  worlds.
 
-# copy the live world out (named volumes are root-owned on the host, so use docker cp)
-docker cp minecraft-golf-dev:/data/world /tmp/
-
-# zip it with the world folder as the archive root
-(cd /tmp && zip -r golf-world.zip world)
-```
-
-Then open the Worlds screen on any instance and press `i` to import
-`/tmp/golf-world.zip`. The server keeps writing while you copy, so this
-snapshot is crash-consistent at best — stop the container
-(`docker compose -f dev-server/docker-compose.yml stop`) for a clean one, or
-rely on the RCON flush above. Server-world backups, restore and the
-stopped-server guard are planned as phase 05.
+Server backups are normal `.zip` files (`<world>/level.dat` as the archive
+root) under `<data root>/backups/servers/<serverId>/`, with the same keep-N
+retention as client worlds. Exports go anywhere you choose.
 
 ## Controls
 
@@ -106,6 +109,13 @@ press `?` for the full reference.
 | `x` / `c` | delete a world / copy it to another instance (Worlds) |
 | `y` / `o` | yank a path to the clipboard / open the folder (Worlds) |
 | `Enter` | restore the selected backup — press twice (Worlds backups) |
+| `d` | servers: Docker & local dedicated-server worlds (home) |
+| `a` / `Shift+E` | add / edit a server record (Servers) |
+| `b` / `v` | back up the server world / toggle its backups (Servers) |
+| `e` / `y` / `o` | export / yank the world path / open a local server dir (Servers) |
+| `x` | remove a server record — press twice; the world is never touched (Servers) |
+| `Enter` | restore a server backup; a running container is stopped, restored, restarted (Servers backups) |
+| `p` | prune old backups beyond the retention count (Worlds & Servers backups) |
 | `s` / `i` / `e` | search Modrinth / import a `.jar` / enable-disable (Mods) |
 | `h` | shader packs mode (Mods) |
 | `Esc` | back / close / cancel |
@@ -131,6 +141,8 @@ bun run shots instances # print rendered frames for a screen (or all screens)
 - **Mods** — installed mods per instance (Modrinth search/install coming)
 - **Worlds** — per-instance singleplayer worlds with real `level.dat` metadata,
   zip backup/export/import, restore with a safety snapshot
+- **Servers** — explicit local/Docker dedicated-server records, live RCON-flushed
+  backups, stopped-container restore via a helper-container volume swap
 - **Settings** — current configuration (editing coming)
 - **Logs** — launcher and Minecraft process output
 - **Help** — keyboard reference
