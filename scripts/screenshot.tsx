@@ -91,7 +91,7 @@ if (requested.length === 0 || requested.includes("mods")) {
   await shot("MODS back to list", [["esc"]])
 }
 
-if (requested.length === 0 || requested.includes("worlds")) {
+if (requested.length === 0 || requested.includes("worlds") || requested.includes("worlds-backups")) {
   state.navigate("worlds", state.instances()[0]?.id ?? "none")
   await shot("WORLDS")
   // Create a real backup so the backups view is not an empty state.
