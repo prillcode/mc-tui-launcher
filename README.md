@@ -51,6 +51,31 @@ newest. Restoring a backup first writes a `*-pre-restore-*.zip` safety
 snapshot and keeps the replaced world as `<folder>.replaced-<timestamp>`.
 Every world-mutating action is refused while that instance is running.
 
+### Backing up a Docker / local server world (manual stopgap)
+
+Worlds that live on a dedicated server are **not** in any instance's `saves/`,
+so a server profile (e.g. one auto-connecting to `localhost`) legitimately shows
+0 worlds. Until the dedicated server-world backup work lands, the existing
+pieces cover it manually:
+
+```bash
+# inside the server container (itzg image), flush the world first
+docker exec minecraft-golf-dev rcon-cli save-all flush
+
+# copy the live world out (named volumes are root-owned on the host, so use docker cp)
+docker cp minecraft-golf-dev:/data/world /tmp/
+
+# zip it with the world folder as the archive root
+(cd /tmp && zip -r golf-world.zip world)
+```
+
+Then open the Worlds screen on any instance and press `i` to import
+`/tmp/golf-world.zip`. The server keeps writing while you copy, so this
+snapshot is crash-consistent at best — stop the container
+(`docker compose -f dev-server/docker-compose.yml stop`) for a clean one, or
+rely on the RCON flush above. Server-world backups, restore and the
+stopped-server guard are planned as phase 05.
+
 ## Controls
 
 Every key is a named command on one `@opentui/keymap` keymap, scoped to the

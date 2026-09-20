@@ -892,11 +892,26 @@ export function WorldsScreen() {
                 <Show
                   when={worlds().length > 0}
                   fallback={
-                    <text fg="#6c7086" flexShrink={0}>
-                      {loading()
-                        ? "Scanning worlds…"
-                        : "No worlds yet — press 'i' to import a world zip."}
-                    </text>
+                    <box flexDirection="column" flexShrink={0}>
+                      <text fg="#6c7086">
+                        {loading()
+                          ? "Scanning worlds…"
+                          : "No singleplayer worlds in this instance yet."}
+                      </text>
+                      <Show when={instance()?.type === "server"}>
+                        <text fg="#585b70">
+                          This is a server profile — its world lives on the server, not in this
+                          client's saves/.
+                        </text>
+                        <text fg="#585b70">
+                          Back up a Docker/local server world with 'docker cp' (see README) and import
+                          the zip here with 'i'.
+                        </text>
+                      </Show>
+                      <Show when={!loading() && instance()?.type !== "server"}>
+                        <text fg="#6c7086">Press 'i' to import a world zip.</text>
+                      </Show>
+                    </box>
                   }
                 >
                   <scrollbox ref={setWorldListRef} height={listHeight(WORLDS_CHROME)} scrollbarOptions={{ showArrows: false }}>
