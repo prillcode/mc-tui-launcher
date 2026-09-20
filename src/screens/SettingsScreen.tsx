@@ -28,12 +28,17 @@ type EditableKey =
   | "defaultResolutionWidth"
   | "defaultResolutionHeight"
   | "closeOnLaunch"
+  | "worldsKeepBackups"
+  | "autoBackupWorldsBeforeLaunch"
+  | "lastWorldExportDir"
 
 interface Row {
   key: EditableKey
   label: string
   kind: "string" | "number" | "toggle"
   value: string
+  /** Current boolean, for `kind: "toggle"`. */
+  bool?: boolean
 }
 
 export function SettingsScreen() {
@@ -88,6 +93,26 @@ export function SettingsScreen() {
         label: "Close on launch",
         kind: "toggle",
         value: s.closeOnLaunch ? "yes" : "no",
+        bool: s.closeOnLaunch,
+      },
+      {
+        key: "worldsKeepBackups",
+        label: "World backups to keep",
+        kind: "number",
+        value: String(s.worldsKeepBackups),
+      },
+      {
+        key: "autoBackupWorldsBeforeLaunch",
+        label: "Back up worlds on launch",
+        kind: "toggle",
+        value: s.autoBackupWorldsBeforeLaunch ? "yes" : "no",
+        bool: s.autoBackupWorldsBeforeLaunch,
+      },
+      {
+        key: "lastWorldExportDir",
+        label: "World export folder",
+        kind: "string",
+        value: s.lastWorldExportDir,
       },
     ]
   }
@@ -141,9 +166,10 @@ export function SettingsScreen() {
     const row = rows()[selected()]
     if (!row) return
     if (row.kind === "toggle") {
-      const s = settings()
-      if (!s) return
-      void persist(() => launcherService.setSetting("closeOnLaunch", !s.closeOnLaunch), row.label)
+      void persist(
+        () => launcherService.setSetting(row.key as "closeOnLaunch", !row.bool),
+        row.label,
+      )
       return
     }
     openEditor(row)
@@ -224,6 +250,10 @@ export function SettingsScreen() {
         <text fg="#6c7086">
           {"  "}BlockHaven:     {settings()?.blockhavenDefaultHost ?? "—"}:{settings()?.blockhavenDefaultPort ?? "—"} (legacy)
         </text>
+        <text fg="#6c7086">
+          {"  "}Worlds:         backups keep {settings()?.worldsKeepBackups ?? 5}; auto-backup before launch adds a few
+        </text>
+        <text fg="#6c7086">{"                  "}seconds per launch on large worlds.</text>
         <text fg="#6c7086">  Data root:      {appConfig.dataRoot}</text>
       </Centered>
       <KeyHints extra={editing() ? [["type", "value"], ["Enter", "save"]] : undefined} />

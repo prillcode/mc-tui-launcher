@@ -1,7 +1,7 @@
 import { createCliRenderer, type ClipboardService } from "@opentui/core"
 import { render } from "@opentui/solid"
 import { KeymapProvider } from "@opentui/keymap/solid"
-import { createAppClipboard } from "./app/clipboard"
+import { createAppClipboard, setAppClipboard } from "./app/clipboard"
 import { createAppKeymap } from "./app/keymap"
 import { App } from "./app/App"
 
@@ -26,10 +26,13 @@ let clipboard: ClipboardService | undefined
 try {
   clipboard = createAppClipboard(renderer)
 } catch (err) {
-  // No native host clipboard (e.g. no Wayland/X11 display) — degrade to
-  // the terminal-only OSC 52 path inside copy operations.
-  console.error(`Host clipboard unavailable: ${err instanceof Error ? err.message : String(err)}`)
+  // Should be unreachable: createAppClipboard degrades to the terminal-only
+  // OSC 52 path rather than throwing. Kept as a last resort so the app still
+  // runs when even the renderer adapter is unavailable.
+  console.error(`Clipboard unavailable: ${err instanceof Error ? err.message : String(err)}`)
 }
+// Publish it for screens (yank/export paths) in addition to the App prop.
+setAppClipboard(clipboard)
 try {
   await render(
     () => (

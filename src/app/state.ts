@@ -1,5 +1,10 @@
 import { createSignal } from "solid-js"
-import type { DownloadProgress, Instance, MinecraftProfile, VersionSummary } from "@prillcode/mc-launcher-core"
+import type {
+  Instance,
+  MinecraftProfile,
+  TaskProgress,
+  VersionSummary,
+} from "@prillcode/mc-launcher-core"
 
 /**
  * Central reactive application state.
@@ -17,6 +22,7 @@ export type ScreenName =
   | "instances"
   | "instance-detail"
   | "mods"
+  | "worlds"
   | "settings"
   | "logs"
   | "help"
@@ -79,7 +85,9 @@ export { instances, versions, setInstances, setVersions }
 
 const [statusMessage, setStatusMessage] = createSignal("Welcome to Blockhaven MC — press ? for help")
 const [busy, setBusy] = createSignal(false)
-const [progress, setProgress] = createSignal<DownloadProgress | null>(null)
+// One progress signal for every core task: DownloadProgress and WorldProgress
+// share {phase, current, total, fileName, bytesPerSecond}.
+const [progress, setProgress] = createSignal<TaskProgress | null>(null)
 export { statusMessage, busy, progress, setStatusMessage, setBusy, setProgress }
 
 // ── Text input capture ──────────────────────────────────────────
@@ -101,6 +109,26 @@ export { textInputActive, setTextInputActive }
  */
 const [modsFocusInstanceId, setModsFocusInstanceId] = createSignal<string | null>(null)
 export { modsFocusInstanceId, setModsFocusInstanceId }
+
+// ── Worlds screen context ───────────────────────────────────────
+
+/**
+ * Set when opening the Worlds screen from an instance detail view so the
+ * screen shows that instance first. Cleared after consumption.
+ */
+const [worldsFocusInstanceId, setWorldsFocusInstanceId] = createSignal<string | null>(null)
+export { worldsFocusInstanceId, setWorldsFocusInstanceId }
+
+/**
+ * Bumped to force the Worlds screen to rescan the current instance (e.g.
+ * after another screen changed something). Screens read it inside their
+ * load effect so a bump re-runs the scan.
+ */
+const [worldsRefreshToken, setWorldsRefreshToken] = createSignal(0)
+export { worldsRefreshToken }
+export function bumpWorldsRefresh(): void {
+  setWorldsRefreshToken((n) => n + 1)
+}
 
 // ── Running game processes ──────────────────────────────────────
 

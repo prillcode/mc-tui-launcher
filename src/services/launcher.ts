@@ -6,6 +6,8 @@ import {
   setLogger,
   getSettings,
   setSetting as coreSetSetting,
+  inspectZip,
+  availableBytes,
   type Logger,
   type LogLevel,
   type MinecraftProfile,
@@ -16,6 +18,10 @@ import {
   type ServerPingResult,
   type LauncherSettings,
   type DownloadProgress,
+  type WorldProgress,
+  type WorldSummary,
+  type WorldStats,
+  type BackupEntry,
 } from "@prillcode/mc-launcher-core"
 import {
   appendLog,
@@ -159,6 +165,97 @@ class LauncherService {
 
   isInstanceRunning(instanceId: string): boolean {
     return this.core.isInstanceRunning(instanceId)
+  }
+
+  // ── Worlds ────────────────────────────────────────────────────
+
+  listWorlds(instanceId: string): Promise<WorldSummary[]> {
+    return this.core.worlds.listWorlds(instanceId)
+  }
+
+  measureWorld(instanceId: string, folder: string) {
+    return this.core.worlds.measureWorld(instanceId, folder)
+  }
+
+  readWorldStats(instanceId: string, folder: string): Promise<WorldStats> {
+    return this.core.worlds.readStats(instanceId, folder)
+  }
+
+  /** Back up a world, honouring the configured retention count. */
+  async backupWorld(
+    instanceId: string,
+    folder: string,
+    onProgress?: (progress: WorldProgress) => void,
+  ): Promise<BackupEntry> {
+    const settings = await getSettings()
+    return this.core.worlds.backupWorld(instanceId, folder, {
+      keep: settings.worldsKeepBackups,
+      onProgress,
+    })
+  }
+
+  listBackups(instanceId: string): Promise<BackupEntry[]> {
+    return this.core.worlds.listBackups(instanceId)
+  }
+
+  deleteBackup(instanceId: string, fileName: string): Promise<void> {
+    return this.core.worlds.deleteBackup(instanceId, fileName)
+  }
+
+  async pruneBackups(instanceId: string): Promise<BackupEntry[]> {
+    const settings = await getSettings()
+    return this.core.worlds.pruneBackups(instanceId, settings.worldsKeepBackups)
+  }
+
+  restoreBackup(
+    instanceId: string,
+    fileName: string,
+    onProgress?: (progress: WorldProgress) => void,
+  ) {
+    return this.core.worlds.restoreBackup(instanceId, fileName, { onProgress })
+  }
+
+  exportWorld(
+    instanceId: string,
+    folder: string,
+    destZipPath: string,
+    onProgress?: (progress: WorldProgress) => void,
+  ): Promise<BackupEntry> {
+    return this.core.worlds.exportWorld(instanceId, folder, destZipPath, { onProgress })
+  }
+
+  importWorld(
+    instanceId: string,
+    zipPath: string,
+    options: { folderName?: string; onProgress?: (progress: WorldProgress) => void } = {},
+  ) {
+    return this.core.worlds.importWorld(instanceId, zipPath, options)
+  }
+
+  deleteWorld(instanceId: string, folder: string): Promise<void> {
+    return this.core.worlds.deleteWorld(instanceId, folder)
+  }
+
+  duplicateWorld(instanceId: string, folder: string, targetInstanceId: string): Promise<string> {
+    return this.core.worlds.duplicateWorld(instanceId, folder, targetInstanceId)
+  }
+
+  inspectWorldZip(zipPath: string) {
+    return inspectZip(zipPath)
+  }
+
+  availableBytes(dir: string): Promise<number> {
+    return availableBytes(dir)
+  }
+
+  worldsBackupsDir(instanceId: string): string {
+    return this.core.worlds.backupsDirFor(instanceId)
+  }
+
+  /** Where exports go by default: the remembered folder, else `<root>/exports`. */
+  async worldExportDir(): Promise<string> {
+    const settings = await getSettings()
+    return settings.lastWorldExportDir || getLauncherPaths().exports
   }
 
   /**
