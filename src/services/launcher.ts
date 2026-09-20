@@ -24,6 +24,9 @@ import {
   type WorldSummary,
   type WorldStats,
   type BackupEntry,
+  type ServerRecord,
+  type ServerSource,
+  type ServerProgress,
 } from "@prillcode/mc-launcher-core"
 import {
   appendLog,
@@ -271,6 +274,91 @@ class LauncherService {
   async worldExportDir(): Promise<string> {
     const settings = await getSettings()
     return settings.lastWorldExportDir || getLauncherPaths().exports
+  }
+
+  // ── Dedicated servers ─────────────────────────────────────────
+
+  listServers(): Promise<ServerRecord[]> {
+    return this.core.servers.listServers()
+  }
+
+  addServer(input: {
+    name: string
+    source: ServerSource
+    liveBackup?: boolean
+    requireStopped?: boolean
+  }): Promise<ServerRecord> {
+    return this.core.servers.addServer(input)
+  }
+
+  updateServer(
+    id: string,
+    patch: Partial<Pick<ServerRecord, "name" | "source" | "liveBackup" | "requireStopped">>,
+  ): Promise<ServerRecord> {
+    return this.core.servers.updateServer(id, patch)
+  }
+
+  removeServer(id: string, options: { deleteBackups?: boolean } = {}): Promise<void> {
+    return this.core.servers.removeServer(id, options)
+  }
+
+  /** One world per server (null when the world directory is gone). */
+  listServerWorld(serverId: string): Promise<WorldSummary | null> {
+    return this.core.servers.getWorld(serverId)
+  }
+
+  measureServerWorld(serverId: string): Promise<{ sizeBytes: number; fileCount: number }> {
+    return this.core.servers.measureWorld(serverId)
+  }
+
+  /** Back up a server world, honouring the configured retention count. */
+  async backupServerWorld(
+    serverId: string,
+    onProgress?: (progress: ServerProgress) => void,
+  ): Promise<BackupEntry> {
+    const settings = await getSettings()
+    return this.core.servers.backupWorld(serverId, {
+      keep: settings.worldsKeepBackups,
+      onProgress,
+    })
+  }
+
+  listServerBackups(serverId: string): Promise<BackupEntry[]> {
+    return this.core.servers.listBackups(serverId)
+  }
+
+  deleteServerBackup(serverId: string, fileName: string): Promise<void> {
+    return this.core.servers.deleteBackup(serverId, fileName)
+  }
+
+  async pruneServerBackups(serverId: string): Promise<BackupEntry[]> {
+    const settings = await getSettings()
+    return this.core.servers.pruneBackups(serverId, settings.worldsKeepBackups)
+  }
+
+  restoreServerBackup(
+    serverId: string,
+    fileName: string,
+    options: { manageContainer?: boolean; onProgress?: (progress: ServerProgress) => void } = {},
+  ) {
+    return this.core.servers.restoreBackup(serverId, fileName, options)
+  }
+
+  exportServerWorld(
+    serverId: string,
+    destZipPath: string,
+    onProgress?: (progress: ServerProgress) => void,
+  ): Promise<BackupEntry> {
+    return this.core.servers.exportWorld(serverId, destZipPath, { onProgress })
+  }
+
+  serverBackupsDir(serverId: string): string {
+    return this.core.servers.backupsDirFor(serverId)
+  }
+
+  /** Docker discovery for the add-server form (never used to guess records). */
+  discoverDockerContainers() {
+    return this.core.servers.discoverDockerContainers()
   }
 
   /**

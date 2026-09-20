@@ -23,6 +23,7 @@ export type ScreenName =
   | "instance-detail"
   | "mods"
   | "worlds"
+  | "servers"
   | "settings"
   | "logs"
   | "help"
@@ -132,6 +133,25 @@ const [worldsRefreshToken, setWorldsRefreshToken] = createSignal(0)
 export { worldsRefreshToken }
 export function bumpWorldsRefresh(): void {
   setWorldsRefreshToken((n) => n + 1)
+}
+
+// ── Servers screen context ──────────────────────────────────────
+
+/**
+ * Set when opening the Servers screen from elsewhere so it focuses a
+ * specific server first. Cleared after consumption.
+ */
+const [serverFocusId, setServerFocusId] = createSignal<string | null>(null)
+export { serverFocusId, setServerFocusId }
+
+/**
+ * Bumped to force the Servers screen to rescan its records and worlds
+ * (e.g. after another screen changed something).
+ */
+const [serversRefreshToken, setServersRefreshToken] = createSignal(0)
+export { serversRefreshToken }
+export function bumpServersRefresh(): void {
+  setServersRefreshToken((n) => n + 1)
 }
 
 // ── Running game processes ──────────────────────────────────────
