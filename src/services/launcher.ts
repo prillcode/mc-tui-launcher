@@ -7,6 +7,7 @@ import {
   getSettings,
   setSetting as coreSetSetting,
   inspectZip,
+  readZipLevelDat,
   availableBytes,
   type Logger,
   type LogLevel,
@@ -242,6 +243,11 @@ class LauncherService {
 
   inspectWorldZip(zipPath: string) {
     return inspectZip(zipPath)
+  }
+
+  /** The world's parsed level.dat from inside a zip (no extraction). */
+  readWorldZipLevel(zipPath: string) {
+    return readZipLevelDat(zipPath)
   }
 
   availableBytes(dir: string): Promise<number> {

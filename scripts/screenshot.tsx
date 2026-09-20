@@ -91,6 +91,16 @@ if (requested.length === 0 || requested.includes("mods")) {
   await shot("MODS back to list", [["esc"]])
 }
 
+if (requested.length === 0 || requested.includes("worlds")) {
+  state.navigate("worlds", state.instances()[0]?.id ?? "none")
+  await shot("WORLDS")
+  // Create a real backup so the backups view is not an empty state.
+  await setup.mockInput.pressKey("b")
+  await settle(2500)
+  await shot("WORLDS after backup (b)")
+  await shot("WORLDS backups (v)", [["v"]])
+}
+
 if (requested.length === 0 || requested.includes("settings")) {
   state.navigate("settings")
   await shot("SETTINGS")

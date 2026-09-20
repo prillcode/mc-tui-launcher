@@ -8,6 +8,7 @@ import {
   instances,
   busy,
   runningInstanceIds,
+  setWorldsFocusInstanceId,
 } from "../app/state"
 import { HINT, when } from "../app/keymap"
 import { launcherService } from "../services/launcher"
@@ -43,12 +44,20 @@ export function HomeScreen() {
 
   const menu: Array<{ label: string; hint: string; run: () => void }> = [
     { label: "Minecraft Instances", hint: "manage & launch", run: () => navigate("instances") },
+    { label: "Worlds", hint: "browse, back up & restore saves", run: () => openWorlds() },
     { label: "Account/Login", hint: "device-code sign-in", run: () => navigate("login") },
     { label: "Mods & Shaders", hint: "Modrinth & installed mods", run: () => navigate("mods") },
     { label: "Settings", hint: "launcher configuration", run: () => navigate("settings") },
     { label: "Logs", hint: "launcher & game output", run: () => navigate("logs") },
     { label: "Help", hint: "keyboard reference", run: () => navigate("help") },
   ]
+
+  /** Open the Worlds screen focused on the instance selected on Home. */
+  function openWorlds(): void {
+    const inst = shownInstances()[instanceIndex()]
+    setWorldsFocusInstanceId(inst?.id ?? null)
+    navigate("worlds")
+  }
 
   const columnWidth = () => Math.min(100, Math.max(16, dims().width - 4))
   const menuWidth = () => Math.min(44, Math.max(30, columnWidth() - 8))
@@ -162,6 +171,7 @@ export function HomeScreen() {
     commands: [
       { name: "home.toggleSection", run: () => toggleSection() },
       { name: "nav.instances", run: () => navigate("instances") },
+      { name: "nav.worlds", run: () => openWorlds() },
       { name: "nav.login", run: () => navigate("login") },
       { name: "nav.mods", run: () => navigate("mods") },
       { name: "nav.settings", run: () => navigate("settings") },
@@ -169,6 +179,7 @@ export function HomeScreen() {
     bindings: [
       { key: "tab", cmd: "home.toggleSection", desc: "switch section", hint: HINT.edit },
       { key: "i", cmd: "nav.instances" },
+      { key: "w", cmd: "nav.worlds" },
       { key: "a", cmd: "nav.login" },
       { key: "m", cmd: "nav.mods" },
       { key: "s", cmd: "nav.settings" },

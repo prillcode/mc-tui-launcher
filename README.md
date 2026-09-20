@@ -35,6 +35,22 @@ The login screen displays the verification URL and short code (plus a QR code); 
 
 All launcher data lives under a single root: `MC_LAUNCHER_DATA_DIR` if set, otherwise the platform default (`~/.local/share/bhmc-launcher` on Linux, `%APPDATA%\bhmc-launcher` on Windows, `~/Library/Application Support/bhmc-launcher` on macOS).
 
+World backups and exports live inside that root:
+
+```
+<data root>/backups/index.json                 # backup index (per instance)
+<data root>/backups/<instanceId>/<world>-<YYYYMMDD-HHmmss>.zip
+<data root>/exports/<world>-<YYYYMMDD-HHmmss>.zip
+```
+
+Backups are plain `.zip` files whose archive root is the world folder
+(`<world>/level.dat`), so they open with any zip tool and can be shared or
+dropped straight into another instance. Retention defaults to the 5 newest
+per instance (Settings → *World backups to keep*); pruning never removes the
+newest. Restoring a backup first writes a `*-pre-restore-*.zip` safety
+snapshot and keeps the replaced world as `<folder>.replaced-<timestamp>`.
+Every world-mutating action is refused while that instance is running.
+
 ## Controls
 
 Every key is a named command on one `@opentui/keymap` keymap, scoped to the
@@ -59,6 +75,12 @@ press `?` for the full reference.
 | `Shift+M` | edit instance memory (instance details) |
 | `ctrl+x` | close the running Minecraft client (instance details) |
 | `m` | mods (home) |
+| `w` | worlds: browse, back up and restore singleplayer saves (home) |
+| `b` / `v` | back up the selected world / toggle the backups list (Worlds) |
+| `e` / `i` | export a world zip / import a world zip (Worlds) |
+| `x` / `c` | delete a world / copy it to another instance (Worlds) |
+| `y` / `o` | yank a path to the clipboard / open the folder (Worlds) |
+| `Enter` | restore the selected backup — press twice (Worlds backups) |
 | `s` / `i` / `e` | search Modrinth / import a `.jar` / enable-disable (Mods) |
 | `h` | shader packs mode (Mods) |
 | `Esc` | back / close / cancel |
@@ -82,6 +104,8 @@ bun run shots instances # print rendered frames for a screen (or all screens)
 - **Instances** — list, create (vanilla), open details
 - **Instance detail** — metadata + launch (the MVP chain: session → version files → Java → launch)
 - **Mods** — installed mods per instance (Modrinth search/install coming)
+- **Worlds** — per-instance singleplayer worlds with real `level.dat` metadata,
+  zip backup/export/import, restore with a safety snapshot
 - **Settings** — current configuration (editing coming)
 - **Logs** — launcher and Minecraft process output
 - **Help** — keyboard reference
