@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises"
+import * as path from "node:path"
 import {
   Launcher,
   FileLogger,
@@ -62,6 +63,14 @@ class TeeLogger implements Logger {
   debug(message: string, meta?: Record<string, unknown>): void {
     this.write("debug", message, meta)
   }
+}
+
+/** Compact byte formatting for status messages. */
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${bytes} B`
 }
 
 /**
@@ -362,6 +371,75 @@ class LauncherService {
   // ── MVP launch chain ──────────────────────────────────────────
 
   /**
+   * Opt-in pre-launch world backup. Backs up only worlds whose `level.dat`
+   * is newer than their newest backup, and can never block a launch: every
+   * failure is logged and reported, then the launch continues.
+   */
+  async backupChangedWorldsForLaunch(instance: Instance): Promise<void> {
+    const settings = await getSettings()
+    if (!settings.autoBackupWorldsBeforeLaunch) return
+
+    let worlds: WorldSummary[]
+    try {
+      worlds = await this.core.worlds.listWorlds(instance.id)
+    } catch {
+      return
+    }
+    if (worlds.length === 0) return // common server-play path: no worlds, no cost
+
+    let backups: BackupEntry[] = []
+    try {
+      backups = await this.core.worlds.listBackups(instance.id)
+    } catch {
+      backups = []
+    }
+    const newestByFolder = new Map<string, number>()
+    for (const backup of backups) {
+      newestByFolder.set(
+        backup.worldFolder,
+        Math.max(newestByFolder.get(backup.worldFolder) ?? 0, backup.createdAt),
+      )
+    }
+
+    const changed: WorldSummary[] = []
+    for (const world of worlds) {
+      let mtime = 0
+      try {
+        mtime = (await fs.stat(path.join(world.path, "level.dat"))).mtimeMs
+      } catch {
+        mtime = world.lastPlayed ?? 0
+      }
+      if (mtime > (newestByFolder.get(world.folder) ?? 0)) changed.push(world)
+    }
+    if (changed.length === 0) return
+
+    let count = 0
+    let bytes = 0
+    for (let i = 0; i < changed.length; i++) {
+      const world = changed[i]!
+      setStatusMessage(`Backing up worlds (${i + 1}/${changed.length}) — ${world.name}…`)
+      try {
+        const entry = await this.core.worlds.backupWorld(instance.id, world.folder, {
+          keep: settings.worldsKeepBackups,
+          onProgress: (p) => setProgress(p),
+        })
+        count++
+        bytes += entry.bytes
+      } catch (err) {
+        // Never let a backup failure stop the launch.
+        appendLog(
+          `[warn] pre-launch backup failed for "${world.name}": ${err instanceof Error ? err.message : String(err)}`,
+        )
+        setStatusMessage(`Pre-launch backup failed for "${world.name}" — continuing`)
+      }
+    }
+    setProgress(null)
+    if (count > 0) {
+      setStatusMessage(`Backed up ${count} world${count === 1 ? "" : "s"} (${formatBytes(bytes)})`)
+    }
+  }
+
+  /**
    * Ensure files + Java for an instance, then launch it with the
    * stored session. Throws with a user-presentable message on failure.
    */
@@ -394,6 +472,7 @@ class LauncherService {
       }
 
       setStatusMessage("Launching Minecraft…")
+      await this.backupChangedWorldsForLaunch(instance)
       const child = await this.core.launchInstance({
         instanceId: instance.id,
         accessToken: session.minecraft.accessToken,
