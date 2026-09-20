@@ -28,7 +28,7 @@ type InstalledShader = { fileName: string; fileSize: number; installedAt: number
  * a `<scrollbox>` is not reliably shrink-constrained through the layout slot
  * that `<Switch>` renders its children into.
  */
-const RESULTS_CHROME = 11
+const RESULTS_CHROME = 12
 const INSTALLED_CHROME = 10
 
 function formatSize(bytes: number): string {

@@ -19,7 +19,6 @@ import {
   runningInstanceIds,
   worldsFocusInstanceId,
   setWorldsFocusInstanceId,
-  bumpWorldsRefresh,
 } from "../app/state"
 import { HINT, allOf, when } from "../app/keymap"
 import { launcherService } from "../services/launcher"
@@ -504,7 +503,6 @@ export function WorldsScreen() {
           ? `Imported ${imported.summary.name}`
           : `Imported ${imported.summary.name} as "${imported.folder}"`,
       )
-      bumpWorldsRefresh()
     } catch (err) {
       setStatusMessage(`Import failed: ${err instanceof Error ? err.message : String(err)}`)
     } finally {

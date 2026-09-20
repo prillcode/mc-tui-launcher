@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js"
+import { batch, createSignal } from "solid-js"
 import type {
   Instance,
   MinecraftProfile,
@@ -34,9 +34,13 @@ const [selectedInstanceId, setSelectedInstanceId] = createSignal<string | null>(
 export { screen, selectedInstanceId }
 
 export function navigate(to: ScreenName, instanceId?: string): void {
-  setPreviousScreen(screen())
-  setScreen(to)
-  if (instanceId !== undefined) setSelectedInstanceId(instanceId)
+  // Batch: without it `setScreen` renders the next screen synchronously, so a
+  // screen that reads `selectedInstanceId()` in onMount would see the old id.
+  batch(() => {
+    setPreviousScreen(screen())
+    setScreen(to)
+    if (instanceId !== undefined) setSelectedInstanceId(instanceId)
+  })
 }
 
 export function goBack(): void {
