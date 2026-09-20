@@ -9,6 +9,7 @@ const SCREEN_LABELS: Record<string, string> = {
   "instance-detail": "Instance",
   mods: "Mods & Shaders",
   worlds: "Worlds",
+  servers: "Servers",
   settings: "Settings",
   logs: "Logs",
   help: "Help",

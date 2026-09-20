@@ -45,6 +45,7 @@ export function HomeScreen() {
   const menu: Array<{ label: string; hint: string; run: () => void }> = [
     { label: "Minecraft Instances", hint: "manage & launch", run: () => navigate("instances") },
     { label: "Worlds", hint: "browse, back up & restore saves", run: () => openWorlds() },
+    { label: "Servers", hint: "Docker & local dedicated-server worlds", run: () => navigate("servers") },
     { label: "Account/Login", hint: "device-code sign-in", run: () => navigate("login") },
     { label: "Mods & Shaders", hint: "Modrinth & installed mods", run: () => navigate("mods") },
     { label: "Settings", hint: "launcher configuration", run: () => navigate("settings") },
@@ -172,6 +173,7 @@ export function HomeScreen() {
       { name: "home.toggleSection", run: () => toggleSection() },
       { name: "nav.instances", run: () => navigate("instances") },
       { name: "nav.worlds", run: () => openWorlds() },
+      { name: "nav.servers", run: () => navigate("servers") },
       { name: "nav.login", run: () => navigate("login") },
       { name: "nav.mods", run: () => navigate("mods") },
       { name: "nav.settings", run: () => navigate("settings") },
@@ -180,6 +182,7 @@ export function HomeScreen() {
       { key: "tab", cmd: "home.toggleSection", desc: "switch section", hint: HINT.edit },
       { key: "i", cmd: "nav.instances" },
       { key: "w", cmd: "nav.worlds" },
+      { key: "d", cmd: "nav.servers" },
       { key: "a", cmd: "nav.login" },
       { key: "m", cmd: "nav.mods" },
       { key: "s", cmd: "nav.settings" },

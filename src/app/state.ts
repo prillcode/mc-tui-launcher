@@ -2,6 +2,7 @@ import { batch, createSignal } from "solid-js"
 import type {
   Instance,
   MinecraftProfile,
+  ServerProgress,
   TaskProgress,
   VersionSummary,
 } from "@prillcode/mc-launcher-core"
@@ -90,9 +91,9 @@ export { instances, versions, setInstances, setVersions }
 
 const [statusMessage, setStatusMessage] = createSignal("Welcome to Blockhaven MC — press ? for help")
 const [busy, setBusy] = createSignal(false)
-// One progress signal for every core task: DownloadProgress and WorldProgress
-// share {phase, current, total, fileName, bytesPerSecond}.
-const [progress, setProgress] = createSignal<TaskProgress | null>(null)
+// One progress signal for every core task: DownloadProgress, WorldProgress
+// and ServerProgress share {phase, current, total, fileName, bytesPerSecond}.
+const [progress, setProgress] = createSignal<TaskProgress | ServerProgress | null>(null)
 export { statusMessage, busy, progress, setStatusMessage, setBusy, setProgress }
 
 // ── Text input capture ──────────────────────────────────────────

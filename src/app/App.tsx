@@ -14,6 +14,7 @@ import { InstancesScreen } from "../screens/InstancesScreen"
 import { InstanceDetailScreen } from "../screens/InstanceDetailScreen"
 import { ModsScreen } from "../screens/ModsScreen"
 import { WorldsScreen } from "../screens/WorldsScreen"
+import { ServersScreen } from "../screens/ServersScreen"
 import { SettingsScreen } from "../screens/SettingsScreen"
 import { LogsScreen } from "../screens/LogsScreen"
 import { HelpScreen } from "../screens/HelpScreen"
@@ -100,6 +101,9 @@ export function App(props: { clipboard?: ClipboardService }): JSX.Element {
           </Match>
           <Match when={screen() === "worlds"}>
             <WorldsScreen />
+          </Match>
+          <Match when={screen() === "servers"}>
+            <ServersScreen />
           </Match>
           <Match when={screen() === "settings"}>
             <SettingsScreen />
