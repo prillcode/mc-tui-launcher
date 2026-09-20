@@ -1,6 +1,10 @@
 # Blockhaven MC (bhmc)
 
-**Blockhaven MC (`bhmc`)** is a keyboard-first terminal Minecraft launcher built with TypeScript, [OpenTUI](https://github.com/anomalyco/opentui), and SolidJS. It is the first consumer of [`@prillcode/mc-launcher-core`](../mc-launcher-core), the UI-agnostic launcher engine extracted from the BlockHaven launcher.
+**Blockhaven MC (`bhmc`)** is a keyboard-first terminal Minecraft launcher built with TypeScript, [OpenTUI](https://github.com/anomalyco/opentui), and SolidJS. It is the first consumer of [`@prillcode/mc-launcher-core`](https://github.com/prillcode/mc-launcher-core), the UI-agnostic launcher engine extracted from the BlockHaven launcher.
+
+> Repo name is `mc-tui-launcher`; the package/binary keeps the `bhmc`
+> (Blockhaven MC) name. If you fork this as a starting point, you will need your
+> own Azure app registration for Microsoft sign-in — see below.
 
 **Status: scaffold / early MVP.** Architecture, navigation, and the core dependency are in place; the MVP milestone (full authenticated vanilla launch) is being built against this shell.
 
@@ -9,7 +13,8 @@
 Requires [Bun](https://bun.sh) 1.3+ (OpenTUI's primary runtime) and a sibling checkout of `mc-launcher-core`.
 
 ```bash
-# 1. Build the core (sibling repo)
+# 1. Build the core (clone it next to this repo, or point the file: dep at it)
+#    https://github.com/prillcode/mc-launcher-core
 cd ../mc-launcher-core && pnpm install && pnpm build
 
 # 2. Install and link the TUI
@@ -22,14 +27,24 @@ bhmc                # or: bun run src/cli.ts
 
 ### Microsoft authentication
 
-The launcher uses the Microsoft device-code flow. Set your Azure AD application (client) ID in the environment:
+The launcher uses the Microsoft device-code flow. **No Azure client ID is
+bundled** — create your own app registration and export its Application
+(client) ID:
+
+1. Microsoft Entra ID → **App registrations** → **New registration**. Any name;
+   account type *Personal Microsoft accounts* (or multitenant).
+2. **Authentication → Advanced settings → Allow public client flows = Yes.**
+   This is what enables the device-code flow; a redirect URI is not required.
+3. Copy the **Application (client) ID**:
 
 ```bash
 export MS_CLIENT_ID="your-azure-app-client-id"
 bhmc
 ```
 
-The login screen displays the verification URL and short code (plus a QR code); open the URL in any browser, enter the code, and sign in.
+The login screen displays the verification URL and short code (plus a QR code);
+open the URL in any browser, enter the code, and sign in. Until `MS_CLIENT_ID`
+is set, Microsoft sign-in is unavailable (offline-mode play still works).
 
 ### Data location
 
