@@ -2,11 +2,30 @@
 
 **Blockhaven MC (`bhmc`)** is a keyboard-first terminal Minecraft launcher built with TypeScript, [OpenTUI](https://github.com/anomalyco/opentui), and SolidJS. It is the first consumer of [`@prillcode/mc-launcher-core`](https://github.com/prillcode/mc-launcher-core), the UI-agnostic launcher engine extracted from the BlockHaven launcher.
 
-> Repo name is `mc-tui-launcher`; the package/binary keeps the `bhmc`
-> (Blockhaven MC) name. If you fork this as a starting point, you will need your
-> own Azure app registration for Microsoft sign-in — see below.
-
 **Status: scaffold / early MVP.** Architecture, navigation, and the core dependency are in place; the MVP milestone (full authenticated vanilla launch) is being built against this shell.
+
+## If you fork or clone this
+
+This repo is published as `mc-tui-launcher`, but the package/binary keep the
+original `bhmc` (Blockhaven MC) name. **Decide your own identity up front** —
+don't inherit someone else's:
+
+1. **Package / binary / product name.** Keep `bhmc`, or rename all of:
+   `package.json` `name` and `bin`, `src/services/config.ts` `productName`, and
+   the README title. A rename is a one-time decision; doing it later means
+   re-linking the command and updating your notes.
+2. **Data directory.** The core derives it from its own
+   `defaultRoot()` (`~/.local/share/bhmc-launcher` on Linux,
+   `%APPDATA%\bhmc-launcher`, `~/Library/Application Support/bhmc-launcher`).
+   Rename it to match — and note that changing it starts from an empty data
+   root (existing instances/settings/session are under the old name), so move
+   them if you want to keep them.
+3. **Your own Azure app registration.** No client ID ships in this repo. Create
+   your own app and set `MS_CLIENT_ID` (see *Microsoft authentication* below).
+   Even if you like the code as-is, **do not reuse someone else's client ID** —
+   consent, rate limits and branding belong to the app owner.
+
+Do all three before your first release, while there is nothing to migrate.
 
 ## Run it
 
