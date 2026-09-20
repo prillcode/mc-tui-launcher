@@ -1,7 +1,7 @@
 import { Show, Switch, Match, createMemo, createSignal, createEffect, onCleanup } from "solid-js"
 import { useRenderer } from "@opentui/solid"
 import { useBindings } from "@opentui/keymap/solid"
-import type { ServerPingResult } from "@prillcode/mc-launcher-core"
+import type { ServerPingResult, WorldSummary } from "@prillcode/mc-launcher-core"
 import {
   instances,
   selectedInstanceId,
@@ -11,6 +11,7 @@ import {
   setStatusMessage,
   setTextInputActive,
   setModsFocusInstanceId,
+  setWorldsFocusInstanceId,
   runningInstanceIds,
 } from "../app/state"
 import { HINT, allOf, anyOf, notEditing, when } from "../app/keymap"
@@ -33,6 +34,50 @@ import { Progress } from "../components/Progress"
 export function InstanceDetailScreen() {
   const instance = createMemo(() => instances().find((i) => i.id === selectedInstanceId()))
   const renderer = useRenderer()
+
+  // ── Worlds summary (cheap: cached summaries only, no size measuring) ─
+  const [worlds, setWorlds] = createSignal<WorldSummary[]>([])
+  createEffect(() => {
+    const inst = instance()
+    if (!inst) {
+      setWorlds([])
+      return
+    }
+    void (async () => {
+      try {
+        setWorlds(await launcherService.listWorlds(inst.id))
+      } catch {
+        setWorlds([])
+      }
+    })()
+  })
+
+  const worldsInfo = createMemo(() => {
+    const inst = instance()
+    const list = worlds()
+    const versions = new Set<string>()
+    let mismatched = 0
+    let measured = 0
+    let anyMeasured = false
+    for (const world of list) {
+      if (inst && world.versionName && world.versionName !== inst.versionId) {
+        mismatched++
+        versions.add(world.versionName)
+      }
+      if (world.sizeBytes !== undefined) {
+        measured += world.sizeBytes
+        anyMeasured = true
+      }
+    }
+    return { count: list.length, mismatched, versions: [...versions], measured, anyMeasured }
+  })
+
+  function formatBytes(bytes: number): string {
+    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
+    return `${bytes} B`
+  }
 
   // ── Server status (ping) ────────────────────────────────────────
   const PING_TIMEOUT_MS = 6000
@@ -309,6 +354,13 @@ export function InstanceDetailScreen() {
     navigate("mods")
   }
 
+  function openWorlds() {
+    const inst = instance()
+    if (!inst) return
+    setWorldsFocusInstanceId(inst.id)
+    navigate("worlds")
+  }
+
   // ── Key bindings (OpenTUI keymap) ───────────────────────────────
   // Three layers: the Esc/“leave this screen” keys stay live even while a
   // launch is running; the instance actions are off while busy and while
@@ -352,6 +404,7 @@ export function InstanceDetailScreen() {
       { name: "detail.delete", run: () => void deleteInstance() },
       { name: "detail.memory", run: () => openMemoryEditor() },
       { name: "detail.mods", run: () => openMods() },
+      { name: "detail.worlds", run: () => openWorlds() },
       { name: "detail.close", run: () => void closeRunningClient() },
     ],
     bindings: [
@@ -365,6 +418,7 @@ export function InstanceDetailScreen() {
       // `M` — the parser lowercases bare literals, so this must be shift+m.
       { key: "shift+m", cmd: "detail.memory", desc: "memory", hint: HINT.secondary },
       { key: "m", cmd: "detail.mods", desc: "mods", hint: HINT.secondary },
+      { key: "w", cmd: "detail.worlds", desc: "worlds", hint: HINT.secondary },
       // No hint: the body only mentions closing when a client is running.
       { key: "ctrl+x", cmd: "detail.close" },
       { key: "ctrl+s", cmd: "detail.close" },
@@ -440,6 +494,31 @@ export function InstanceDetailScreen() {
             </Show>
             <text fg="#a6adc8">{rowLabel("Game dir")}{instance()!.gameDirectory}</text>
             <Show
+              when={worldsInfo().count > 0}
+              fallback={
+                <text fg="#a6adc8">
+                  {rowLabel("Worlds")}none — press 'w' to browse or import a world zip
+                </text>
+              }
+            >
+              <text fg="#a6adc8">
+                {rowLabel("Worlds")}
+                {worldsInfo().count}
+                {worldsInfo().mismatched > 0
+                  ? ` · ${worldsInfo().mismatched} in ${worldsInfo().versions.join(", ")} ⚠`
+                  : ""}
+                {worldsInfo().anyMeasured ? ` · ${formatBytes(worldsInfo().measured)} total` : ""}
+              </text>
+            </Show>
+            <Show when={worldsInfo().mismatched > 0}>
+              <text fg="#f9e2af">
+                {"  "}⚠ {worldsInfo().mismatched} world{worldsInfo().mismatched === 1 ? "" : "s"}{" "}
+                {worldsInfo().mismatched === 1 ? "was" : "were"} last saved by {worldsInfo().versions.join(", ")} —
+                Minecraft {instance()!.versionId} will upgrade them and older versions can no longer open them; press 'w'
+                to back them up first.
+              </text>
+            </Show>
+            <Show
               when={!editingServer()}
               fallback={
                 <box flexDirection="row">
@@ -505,7 +584,7 @@ export function InstanceDetailScreen() {
               </Match>
             </Switch>
             <text fg="#6c7086">
-              'f' Fabric · 'n' rename · 'x' delete · 'a' auto-connect · 'p' ping · 'M' memory · 'm' mods · Esc back
+              'f' Fabric · 'n' rename · 'x' delete · 'a' auto-connect · 'p' ping · 'M' memory · 'm' mods · 'w' worlds · Esc back
             </text>
           </Match>
           <Match when={true}>
